@@ -158,9 +158,9 @@ namespace LightGBMNet.Interface
         Kldiv
     };
 
-    static class EnumHelper
+    public static class EnumHelper
     {
-        internal static string GetMetricString(MetricType m)
+        public static string GetMetricString(MetricType m)
         {
             switch (m)
             {
@@ -215,7 +215,7 @@ namespace LightGBMNet.Interface
             }
         }
 
-        internal static MetricType ParseMetric(string x)
+        public static MetricType ParseMetric(string x)
         {
             switch (x)
             {
@@ -255,6 +255,7 @@ namespace LightGBMNet.Interface
                 case "gamma":
                     return MetricType.Gamma;
                 case "gamma_deviance":
+                case "gamma-deviance"://seems to be a typo in main library
                     return MetricType.GammaDeviance;
                 case "tweedie":
                     return MetricType.Tweedie;
@@ -295,7 +296,7 @@ namespace LightGBMNet.Interface
             }
         }
 
-        internal static string GetTaskString(TaskType t)
+        public static string GetTaskString(TaskType t)
         {
             switch(t)
             {
@@ -308,7 +309,7 @@ namespace LightGBMNet.Interface
             }
         }
 
-        internal static TaskType ParseTask(string x)
+        public static TaskType ParseTask(string x)
         {
             switch(x)
             {
@@ -329,7 +330,7 @@ namespace LightGBMNet.Interface
             }
         }
 
-        internal static string GetObjectiveString(ObjectiveType o)
+        public static string GetObjectiveString(ObjectiveType o)
         {
             switch(o)
             {
@@ -353,7 +354,7 @@ namespace LightGBMNet.Interface
             }
         }
 
-        internal static ObjectiveType ParseObjective(string o)
+        public static ObjectiveType ParseObjective(string o)
         {
             switch(o)
             {
@@ -399,7 +400,7 @@ namespace LightGBMNet.Interface
             }
         }
 
-        internal static string GetBoostingString(BoostingType t)
+        public static string GetBoostingString(BoostingType t)
         {
             switch(t)
             {
@@ -412,7 +413,7 @@ namespace LightGBMNet.Interface
             }
         }
 
-        internal static BoostingType ParseBoosting(string x)
+        public static BoostingType ParseBoosting(string x)
         {
             switch (x)
             {
@@ -431,7 +432,7 @@ namespace LightGBMNet.Interface
             }
         }
 
-        internal static string GetTreeLearnerString(TreeLearnerType t)
+        public static string GetTreeLearnerString(TreeLearnerType t)
         {
             switch(t)
             {
@@ -444,7 +445,7 @@ namespace LightGBMNet.Interface
             }
         }
 
-        internal static TreeLearnerType ParseTreeLearner(string x)
+        public static TreeLearnerType ParseTreeLearner(string x)
         {
             switch (x)
             {
@@ -464,7 +465,7 @@ namespace LightGBMNet.Interface
             }
         }
 
-        internal static string GetDeviceString(DeviceType d)
+        public static string GetDeviceString(DeviceType d)
         {
             switch (d)
             {
@@ -475,7 +476,7 @@ namespace LightGBMNet.Interface
             }
         }
 
-        internal static DeviceType ParseDevice(string x)
+        public static DeviceType ParseDevice(string x)
         {
             switch(x)
             {
@@ -491,10 +492,26 @@ namespace LightGBMNet.Interface
     {
         public static string JoinParameters(Dictionary<string, string> parameters)
         {
+            Check.NonNull(parameters, nameof(parameters));
+
             if (parameters == null)
                 throw new ArgumentNullException("parameters");
             var res = parameters.Select(keyVal => keyVal.Key + "=" + keyVal.Value);
             return string.Join(" ", res);
+        }
+
+        public static Dictionary<string,string> SplitParameters(string p)
+        {
+            Check.NonNull(p, nameof(p));
+
+            var bits = p.Split(new char[] { '\t', '\n', '\r', ' ','=' }, StringSplitOptions.RemoveEmptyEntries);
+            if (bits.Length % 2 == 1)
+                throw new ArgumentException("Unable to parse persisted parameters", "p");
+            var cnt = bits.Length / 2;
+            var rslt = new Dictionary<string, string>(cnt);
+            for (int i = 0; i < cnt; ++i)
+                rslt.Add(bits[2 * i], bits[2 * i + 1]);
+            return rslt;
         }
     }
 
@@ -649,12 +666,16 @@ namespace LightGBMNet.Interface
         }
     }
 
+    public interface IParameters
+    {
+
+    }
     public abstract class ParametersBase<T> 
         where T : ParametersBase<T>, new()
     {
         static protected ParamsHelper<T> _helper = new ParamsHelper<T>();
 
-        virtual public T FromParameters(Dictionary<string, string> pms)
+        static public T FromParameters(Dictionary<string, string> pms)
         {
             return _helper.FromParameters(pms);
         }
@@ -1028,9 +1049,10 @@ namespace LightGBMNet.Interface
 
         // Note, persisted as an int because we expect the file to contain -1,0,or 1, not strings.
         public int Verbosity { get; set; } = (int)VerbosityType.Info;
+        public void SetVerbosity(VerbosityType vt) { Verbosity = (int)vt; }
 
         private int _maxBin = 255;
-        int MaxBin
+        public int MaxBin
         {
             get { return _maxBin; }
             set
@@ -1042,7 +1064,7 @@ namespace LightGBMNet.Interface
         }
 
         private int _minDataInBin = 3;
-        int MinDataInBin
+        public int MinDataInBin
         {
             get { return _minDataInBin; }
             set
@@ -1054,7 +1076,7 @@ namespace LightGBMNet.Interface
         }
 
         private int _binConstructSampleCnt = 200000;
-        int BinConstructSampleCnt
+        public int BinConstructSampleCnt
         {
             get { return _binConstructSampleCnt; }
             set
@@ -1084,7 +1106,7 @@ namespace LightGBMNet.Interface
         public bool EnableBundle { get; set; } = true;
 
         private double _maxConflictRate = 0.0;
-        double MaxConflictRate
+        public double MaxConflictRate
         {
             get { return _maxConflictRate; }
             set
@@ -1098,7 +1120,7 @@ namespace LightGBMNet.Interface
         public bool IsEnableSparse { get; set; } = true;
 
         private double _sparseThreshold = 0.8;
-        double SparseThreshold
+        public double SparseThreshold
         {
             get { return _sparseThreshold; }
             set
@@ -1429,6 +1451,53 @@ namespace LightGBMNet.Interface
         public override void AddParameters(Dictionary<string, string> result)
         {
             _helper.AddParameters(this, result);
+        }
+    }
+
+    public class Parameters
+    {
+        public GPUParameters GPU { get; set; }
+        public NetworkParameters Network { get; set; }
+        public MetricParameters Metric { get; set; }
+        public ObjectiveParameters Objective { get; set; }
+        public LearningControlParameters Learning { get; set; }
+        public IOParameters IO { get; set; }
+        public CoreParameters Core { get; set; }
+
+        public Parameters()
+        {
+            GPU = new GPUParameters();
+            Network = new NetworkParameters();
+            Metric = new MetricParameters();
+            Objective = new ObjectiveParameters();
+            Learning = new LearningControlParameters();
+            IO = new IOParameters();
+            Core = new CoreParameters();
+        }
+
+        public Parameters(string v)
+        {
+            var dict = ParamsHelper.SplitParameters(v);
+            GPU = GPUParameters.FromParameters(dict);
+            Network = NetworkParameters.FromParameters(dict);
+            Metric = MetricParameters.FromParameters(dict);
+            Objective = ObjectiveParameters.FromParameters(dict);
+            Learning = LearningControlParameters.FromParameters(dict);
+            IO = IOParameters.FromParameters(dict);
+            Core = CoreParameters.FromParameters(dict);
+        }
+
+        public override string ToString()
+        {
+            var dict = new Dictionary<string, string>();
+            GPU.AddParameters(dict);
+            Network.AddParameters(dict);
+            Metric.AddParameters(dict);
+            Objective.AddParameters(dict);
+            Learning.AddParameters(dict);
+            IO.AddParameters(dict);
+            Core.AddParameters(dict);
+            return ParamsHelper.JoinParameters(dict);
         }
     }
 }

@@ -8,34 +8,110 @@ namespace LightGBMNet.Interface
     /// <summary>
     /// Wrapper of Booster object of LightGBM.
     /// </summary>
-    internal sealed class Booster : IDisposable
+    public sealed class Booster : IDisposable
     {
+        public enum PredictType : int
+        {
+            /// <summary>
+            /// normal prediction, with transform(if needed)
+            /// </summary>
+            Normal = 0,
+
+            /// <summary>
+            /// Raw score
+            /// </summary>
+            RawScore = 1,
+
+            /// <summary>
+            /// Leaf index
+            /// </summary>
+            LeafIndex = 2,
+            /// <summary>
+            /// Contribution
+            /// </summary>
+            Contrib = 3
+        }
+
+        public enum ImportanceType : int
+        {
+            Split = 0,
+            Gain  = 1
+        }
+
         private readonly bool _hasValid;
         private readonly bool _hasMetric;
 
-        public IntPtr Handle { get; private set; }
+        internal IntPtr Handle { get; private set; }
         public int BestIteration { get; set; }
 
-        public Booster(Dictionary<string, string> parameters, Dataset trainset, Dataset validset = null)
+        private Booster(IntPtr h, int bestIteration)
         {
-            var param = ParamsHelper.JoinParameters(parameters);
+            BestIteration = bestIteration;
+            Handle = h;
+
+            int numEval = this.EvalCounts;
+            // At most one metric in ML.NET: to do remove this.
+            if (numEval > 1)
+                throw new Exception("Expected at most one metric");
+            else if (numEval == 1)
+                _hasMetric = true;
+        }
+
+        public Booster(Parameters parameters, Dataset trainset, Dataset validset = null)
+        {
+            var param = parameters.ToString();
             var handle = IntPtr.Zero;
             PInvokeException.Check(PInvoke.BoosterCreate(trainset.Handle, param, ref handle),nameof(PInvoke.BoosterCreate));
             Handle = handle;
             if (validset != null)
             {
-                PInvokeException.Check(PInvoke.BoosterAddValidData(Handle, validset.Handle),nameof(PInvoke.BoosterAddValidData));
+                PInvokeException.Check(PInvoke.BoosterAddValidData(handle, validset.Handle),nameof(PInvoke.BoosterAddValidData));
                 _hasValid = true;
             }
-
-            int numEval = 0;
             BestIteration = -1;
-            PInvokeException.Check(PInvoke.BoosterGetEvalCounts(Handle, ref numEval),nameof(PInvoke.BoosterGetEvalCounts));
-            // At most one metric in ML.NET.
+
+            int numEval = this.EvalCounts;
+            // At most one metric in ML.NET: to do remove this.
             if (numEval > 1)
                 throw new Exception("Expected at most one metric");
             else if (numEval == 1)
                 _hasMetric = true;
+        }
+        
+        // Load a booster from a model file.
+        public static Booster FromFile(string fileName)
+        {
+            Check.NonNull(fileName, nameof(fileName));
+            var handle = IntPtr.Zero;
+            var numIteration = 0;
+            PInvokeException.Check(PInvoke.BoosterCreateFromModelfile(fileName, ref numIteration, ref handle),
+                                   nameof(PInvoke.BoosterCreateFromModelfile));
+            return new Booster(handle, numIteration);
+        }
+
+        // Load a booster from a string. Note that I can't use a ctr as would have the same signature as above.
+        public static Booster FromString(string model)
+        {
+            Check.NonNull(model, nameof(model));
+            var handle = IntPtr.Zero;
+            var numIteration = 0;
+            PInvokeException.Check(PInvoke.BoosterLoadModelFromString(model, ref numIteration, ref handle),
+                                   nameof(PInvoke.BoosterLoadModelFromString));
+            return new Booster(handle, numIteration);
+        }
+
+        public void ResetTraingData(Dataset trainset)
+        {
+            Check.NonNull(trainset, nameof(trainset));
+            PInvokeException.Check(PInvoke.BoosterResetTrainingData(Handle, trainset.Handle), 
+                                   nameof(PInvoke.BoosterResetTrainingData));
+        }
+
+        public void ResetParameter(Parameters pms)
+        {
+            var param = pms.ToString();
+            PInvokeException.Check(PInvoke.BoosterResetParameter(Handle, param),
+                                   nameof(PInvoke.BoosterResetParameter));
         }
 
         public bool Update()
@@ -44,6 +120,20 @@ namespace LightGBMNet.Interface
             PInvokeException.Check(PInvoke.BoosterUpdateOneIter(Handle, ref isFinished),
                                    nameof(PInvoke.BoosterUpdateOneIter));
             return isFinished == 1;
+        }
+
+        public bool UpdateCustom(float[] grad, float[] hess)
+        {
+            int isFinished = 0;
+            PInvokeException.Check(PInvoke.BoosterUpdateOneIterCustom(Handle, grad, hess, ref isFinished),
+                                   nameof(PInvoke.BoosterUpdateOneIterCustom));
+            return isFinished == 1;
+        }
+
+        public void RollbackOneIter()
+        {
+            PInvokeException.Check(PInvoke.BoosterRollbackOneIter(Handle),
+                                   nameof(PInvoke.BoosterRollbackOneIter));
         }
 
         public double EvalTrain()
@@ -71,13 +161,65 @@ namespace LightGBMNet.Interface
             return res[0];
         }
 
+        public int EvalCounts
+        {
+            get
+            {
+                int numEval = 0;
+                PInvokeException.Check(PInvoke.BoosterGetEvalCounts(Handle, ref numEval), nameof(PInvoke.BoosterGetEvalCounts));
+                return numEval;
+            }
+        }
+
+        //Gets the names of the metrics.
+        public MetricType[] EvalNames
+        {
+            get
+            {
+                int numEval = EvalCounts;
+                var ptrs = new IntPtr[numEval];
+                for (int i = 0; i < ptrs.Length; ++i) ptrs[i] = IntPtr.Zero;
+                var rslts = new MetricType[numEval];
+                try
+                {
+                    for (int i = 0; i < ptrs.Length; ++i)
+                        ptrs[i] = Marshal.AllocCoTaskMem(sizeof(char) * PInvoke.MAX_PREALLOCATED_STRING_LENGTH);
+                    var retNumEval = 0;
+                    PInvokeException.Check(PInvoke.BoosterGetEvalNames(Handle, ref retNumEval, ptrs), nameof(PInvoke.BoosterGetEvalNames));
+                    if (numEval != retNumEval)
+                        throw new Exception("Unexpected number of names returned");
+                    for (int i = 0; i < ptrs.Length; ++i)
+                        rslts[i] = EnumHelper.ParseMetric(Marshal.PtrToStringAnsi(ptrs[i]));
+                }
+                finally
+                {
+                    for (int i = 0; i < ptrs.Length; ++i)
+                        Marshal.FreeCoTaskMem(ptrs[i]);
+                }
+                return rslts;
+            }
+        }
+
+        public void SaveModel(int startIteration, int numIteration, string fileName)
+        {
+            Check.NonNull(fileName, nameof(fileName));
+
+            if (startIteration < 0)
+                throw new ArgumentOutOfRangeException(nameof(startIteration));
+            if (numIteration < 0)
+                throw new ArgumentOutOfRangeException(nameof(numIteration));
+
+            PInvokeException.Check(PInvoke.BoosterSaveModel(Handle, startIteration, numIteration, fileName),
+                                   nameof(PInvoke.BoosterSaveModel));
+        }
+
         private unsafe string GetModelString()
         {
-            int bufLen = 2 << 15;
+            long bufLen = 2L << 15;
             byte[] buffer = new byte[bufLen];
-            int size = 0;
+            long size = 0;
             fixed (byte* ptr = buffer)
-                PInvokeException.Check(PInvoke.BoosterSaveModelToString(Handle, BestIteration, bufLen, ref size, ptr),
+                PInvokeException.Check(PInvoke.BoosterSaveModelToString(Handle, -1, BestIteration, bufLen, ref size, ptr),
                                        nameof(PInvoke.BoosterSaveModelToString));
             // If buffer size is not enough, reallocate buffer and get again.
             if (size > bufLen)
@@ -85,8 +227,31 @@ namespace LightGBMNet.Interface
                 bufLen = size;
                 buffer = new byte[bufLen];
                 fixed (byte* ptr = buffer)
-                    PInvokeException.Check(PInvoke.BoosterSaveModelToString(Handle, BestIteration, bufLen, ref size, ptr),
+                    PInvokeException.Check(PInvoke.BoosterSaveModelToString(Handle, -1, BestIteration, bufLen, ref size, ptr),
                                            nameof(PInvoke.BoosterSaveModelToString));
+            }
+            byte[] content = new byte[size];
+            Array.Copy(buffer, content, size);
+            fixed (byte* ptr = content)
+                return Marshal.PtrToStringAnsi((IntPtr)ptr);
+        }
+
+        private unsafe string GetModelJSON(int startIteration, int numIteration)
+        {
+            long bufLen = 2L << 15;
+            byte[] buffer = new byte[bufLen];
+            long size = 0L;
+            fixed (byte* ptr = buffer)
+                PInvokeException.Check(PInvoke.BoosterDumpModel(Handle, startIteration, numIteration, bufLen, ref size, ptr),
+                                       nameof(PInvoke.BoosterDumpModel));
+            // If buffer size is not enough, reallocate buffer and get again.
+            if (size > bufLen)
+            {
+                bufLen = size;
+                buffer = new byte[bufLen];
+                fixed (byte* ptr = buffer)
+                    PInvokeException.Check(PInvoke.BoosterDumpModel(Handle, startIteration, numIteration, bufLen, ref size, ptr),
+                                           nameof(PInvoke.BoosterDumpModel));
             }
             byte[] content = new byte[size];
             Array.Copy(buffer, content, size);
@@ -130,7 +295,7 @@ namespace LightGBMNet.Interface
             return ((decisionType >> 2) & 3) > 0;
         }
 
-        private static double[] GetDefalutValue(double[] threshold, UInt32[] decisionType)
+        private static double[] GetDefaultValue(double[] threshold, UInt32[] decisionType)
         {
             double[] ret = new double[threshold.Length];
             for (int i = 0; i < threshold.Length; ++i)
@@ -185,6 +350,70 @@ namespace LightGBMNet.Interface
                                    nameof(PInvoke.BoosterSetLeafValue));
         }
 
+        public int NumClasses
+        {
+            get
+            {
+                int cnt = 0;
+                PInvokeException.Check(PInvoke.BoosterGetNumClasses(Handle, ref cnt),
+                                       nameof(PInvoke.BoosterGetNumClasses));
+                return cnt;
+            }
+        }
+
+        public int CurrentIteration
+        {
+            get
+            {
+                int cnt = 0;
+                PInvokeException.Check(PInvoke.BoosterGetCurrentIteration(Handle, ref cnt),
+                                       nameof(PInvoke.BoosterGetCurrentIteration));
+                return cnt;
+            }
+        }
+
+        /// <summary>
+        /// Get number of tree per iteration
+        /// </summary>
+        public int NumModelPerIteration
+        {
+            get
+            {
+                int cnt = 0;
+                PInvokeException.Check(PInvoke.BoosterNumModelPerIteration(Handle, ref cnt),
+                                       nameof(PInvoke.BoosterNumModelPerIteration));
+                return cnt;
+            }
+        }
+
+        /// <summary>
+        /// The number of weak sub-models
+        /// </summary>
+        public int NumberOfTotalModel
+        {
+            get
+            {
+                int cnt = 0;
+                PInvokeException.Check(PInvoke.BoosterNumberOfTotalModel(Handle, ref cnt),
+                                       nameof(PInvoke.BoosterNumberOfTotalModel));
+                return cnt;
+            }
+        }
+
+        public void ResetTrainingData(Dataset train)
+        {
+            Check.NonNull(train,nameof(train));
+            PInvokeException.Check(PInvoke.BoosterResetTrainingData(Handle, train.Handle),
+                                   nameof(PInvoke.BoosterResetTrainingData));
+        }
+
+        public void MergeWith(Booster other)
+        {
+            Check.NonNull(other, nameof(other));
+            PInvokeException.Check(PInvoke.BoosterMerge(Handle, other.Handle),
+                                   nameof(PInvoke.BoosterMerge));
+        }
+
         public int NumFeatures
         {
             get
@@ -196,38 +425,107 @@ namespace LightGBMNet.Interface
             }
         }
 
+        // synonym for NumFeatures.
+        public int NumCols
+        {
+            get { return this.NumFeatures; }
+        }
+
         public string[] FeatureNames
         {
             get
             {
-                int cnt = this.NumFeatures;
-                int cnt2 = 0;
-
-                IntPtr[] res = new IntPtr[cnt];
-                PInvokeException.Check(PInvoke.BoosterGetFeatureNames(Handle, ref cnt2, ref res),
-                                       nameof(PInvoke.BoosterGetFeatureNames));
-                if (cnt != cnt2)
-                    throw new Exception("Expected Feature Names to have consistent size with number of features");
-                string[] ret = new string[cnt2];
-                for (int i = 0; i < cnt; ++i)
+                var numFeatureNames = this.NumFeatures;
+                var ptrs = new IntPtr[numFeatureNames];
+                for (int i = 0; i < ptrs.Length; ++i) ptrs[i] = IntPtr.Zero;
+                var rslts = new string[numFeatureNames];
+                try
                 {
-                    ret[i] = Marshal.PtrToStringAnsi(res[i]);
+                    for (int i = 0; i < ptrs.Length; ++i)
+                        ptrs[i] = Marshal.AllocCoTaskMem(sizeof(char) * PInvoke.MAX_PREALLOCATED_STRING_LENGTH);
+                    int retFeatureNames = 0;
+                    PInvokeException.Check(PInvoke.BoosterGetFeatureNames(Handle, ref retFeatureNames, ptrs),
+                                           nameof(PInvoke.BoosterGetFeatureNames));
+                    if (retFeatureNames != numFeatureNames)
+                        throw new Exception("Unexpected number of feature names returned");
+                    for (int i = 0; i < ptrs.Length; ++i)
+                        rslts[i] = Marshal.PtrToStringAnsi(ptrs[i]);
                 }
-                return ret;
+                finally
+                {
+                    for (int i = 0; i < ptrs.Length; ++i)
+                        Marshal.FreeCoTaskMem(ptrs[i]);
+                }
+                return rslts;
             }
         }
+
         // Get the importance of a feature.
-        public unsafe double[] GetFeatureImportance(int numIteration, PInvoke.CApiImportanceType importanceType)
+        public unsafe double[] GetFeatureImportance(int numIteration, ImportanceType importanceType)
         {
             // Get the number of features
             int cnt = this.NumFeatures;
 
             double[] res = new double[cnt];
             fixed (double* ptr = res)
-                PInvokeException.Check(PInvoke.BoosterFeatureImportance(Handle, numIteration, importanceType, ptr),
+                PInvokeException.Check(PInvoke.BoosterFeatureImportance(Handle, numIteration, (int)importanceType, ptr),
                                        nameof(PInvoke.BoosterFeatureImportance));
             return res;
         }
+
+        public void ShuffleModels()
+        {
+            PInvokeException.Check(PInvoke.BoosterShuffleModels(Handle), nameof(PInvoke.BoosterShuffleModels));
+        }
+
+        //To Do: store this matrix efficiently.
+        public void Refit(int[,] leafPreds)
+        {
+            Check.NonNull(leafPreds, nameof(leafPreds));
+            var len1 = leafPreds.GetLength(0);//nrow
+            var len2 = leafPreds.GetLength(1);//ncol
+            var data = new int[len1 * len2];
+            for (int i = 0; i< len1; ++i)
+                for(int j = 0; j < len2; ++j)
+                {
+                    data[i * len2 + j] = leafPreds[i, j];
+                }
+            PInvokeException.Check(PInvoke.BoosterRefit(Handle,data,len1,len2), nameof(PInvoke.BoosterRefit));
+        }
+
+        public long GetNumPredict(int dataIdx)
+        {
+            long outLen = 0;
+            PInvokeException.Check(PInvoke.BoosterGetNumPredict(Handle, dataIdx, ref outLen),
+                                    nameof(PInvoke.BoosterGetNumPredict));
+            return outLen;
+        }
+
+        public unsafe double[] GetPredict(int dataIdx)
+        {
+            var numPredict = GetNumPredict(dataIdx);
+            long outLen = 0;
+            double[] res = new double[outLen];
+            fixed (double* ptr = res)
+            {
+                PInvokeException.Check(PInvoke.BoosterGetPredict(Handle, dataIdx, ref outLen, ptr),
+                                      nameof(PInvoke.BoosterGetPredict));
+            }
+            var copy = new double[outLen];
+            Array.Copy(res, copy, outLen);
+            return copy;
+        }
+
+        // Calculate the number of predictions for a dataset with a given number of rows and iterations.
+        public long CalcNumPredict(int numRow, PredictType predType, int numIteration)
+        {
+            long outLen = 0L;
+            PInvokeException.Check(PInvoke.BoosterCalcNumPredict(Handle, numRow, (int)predType, numIteration, ref outLen),
+                                  nameof(PInvoke.BoosterCalcNumPredict));
+            return outLen;
+        }
+
+
 
         /*
         public FastTree.Internal.Ensemble GetModel(int[] categoricalFeatureBoudaries)

@@ -7,8 +7,8 @@ namespace LightGBMNet.Interface
 {
     class PInvokeException : System.Exception
     {
-        public string FunctionName = "";
-        public int ErrorCode = 0;
+        public readonly string FunctionName;
+        public readonly int ErrorCode;
 
         PInvokeException (int code, string msg, string fnName) : base(msg)
         {
@@ -22,7 +22,7 @@ namespace LightGBMNet.Interface
             {
                 var ptr = PInvoke.GetLastError();
                 string msg = Marshal.PtrToStringAnsi(ptr);
-                throw new PInvokeException(res, fnName, msg);
+                throw new PInvokeException(res, msg, fnName);
             }
         }
     }

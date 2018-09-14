@@ -10,7 +10,7 @@ namespace LightGBMNet.Interface
     {
         private IntPtr _handle;
         private int _lastPushedRowID;
-        public IntPtr Handle => _handle;
+        internal IntPtr Handle => _handle;
 
         private Dataset(IntPtr h)
         {
@@ -23,8 +23,10 @@ namespace LightGBMNet.Interface
             int[] sampleNonZeroCntPerColumn,
             int numSampleRow,
             int numTotalRow,
-            string param, float[] labels, float[] weights = null, int[] groups = null)
+            Parameters param, float[] labels = null, float[] weights = null, int[] groups = null)
         {
+            Check.NonNull(param, nameof(param));
+
             _handle = IntPtr.Zero;
 
             // Use GCHandle to pin the memory, avoid the memory relocation.
@@ -46,7 +48,7 @@ namespace LightGBMNet.Interface
                 {
                     PInvokeException.Check(PInvoke.DatasetCreateFromSampledColumn(
                         (IntPtr)ptrValues, (IntPtr)ptrIndices, numCol, sampleNonZeroCntPerColumn, numSampleRow, numTotalRow,
-                        param, ref _handle),nameof(PInvoke.DatasetCreateFromSampledColumn));
+                        param.ToString(), ref _handle),nameof(PInvoke.DatasetCreateFromSampledColumn));
                 }
             }
             finally
@@ -59,47 +61,70 @@ namespace LightGBMNet.Interface
                         gcIndices[i].Free();
                 };
             }
-            SetLabel(labels);
-            SetWeights(weights);
-            SetGroup(groups);
+            if(labels != null)
+                SetLabel(labels);
+            if (weights != null)
+                SetWeights(weights);
+            if (groups != null)
+                SetGroup(groups);
 
-            if (GetNumCols() != numCol)
+            if (NumFeatures != numCol)
                 throw new Exception("Expected GetNumCols to be equal to numCol");
 
-            if (GetNumRows() != numTotalRow)
+            if (NumRows != numTotalRow)
                 throw new Exception("Expected GetNumRows to be equal to numTotalRow");
         }
 
-        public Dataset(Dataset reference, int numTotalRow, float[] labels, float[] weights = null, int[] groups = null)
+        public Dataset(Dataset reference, int numTotalRow, float[] labels = null, float[] weights = null, int[] groups = null)
         {
             IntPtr refHandle = (reference == null ? IntPtr.Zero : reference.Handle);
 
             PInvokeException.Check(PInvoke.DatasetCreateByReference(refHandle, numTotalRow, ref _handle),
                                    nameof(PInvoke.DatasetCreateByReference));
-
-            SetLabel(labels);
-            SetWeights(weights);
-            SetGroup(groups);
+            if(labels != null)
+                SetLabel(labels);
+            if (weights != null)
+                SetWeights(weights);
+            if (groups != null)
+                SetGroup(groups);
         }
 
         // Load a dataset from file, adding additional parameters and using the optional reference dataset to align bins
-        public Dataset(string fileName, string parameters, Dataset reference)
+        public Dataset(string fileName, Parameters pm, Dataset reference = null)
         {
+            Check.NonNull(fileName,nameof(fileName));
+            if (!System.IO.File.Exists(fileName))
+                throw new ArgumentException(String.Format("File {0} does not exist", fileName));
+            if (!fileName.EndsWith(".bin"))
+                throw new ArgumentException(String.Format("File {0} is not a .bin file", fileName));
+
+            Check.NonNull(pm, nameof(pm));
+
             IntPtr refHandle = (reference == null ? IntPtr.Zero : reference.Handle);
 
-            PInvokeException.Check(PInvoke.DatasetCreateFromFile(fileName, parameters, refHandle, ref _handle),
+            PInvokeException.Check(PInvoke.DatasetCreateFromFile(fileName.Substring(0,fileName.Length-4), pm.ToString(), refHandle, ref _handle),
                                    nameof(PInvoke.DatasetCreateFromFile));
+        }
+
+        public void SaveBinary(string fileName)
+        {
+            Check.NonNull(fileName,nameof(fileName));
+            if (!fileName.EndsWith(".bin"))
+                throw new ArgumentException(String.Format("File {0} is not a .bin file", fileName));
+
+            PInvokeException.Check(PInvoke.DatasetSaveBinary(_handle, fileName),
+                                   nameof(PInvoke.DatasetSaveBinary));
         }
 
         public void PushRows(float[] data, int numRow, int numCol, int startRowIdx)
         {
             if (startRowIdx != _lastPushedRowID)
                 throw new ArgumentException("Expected startRowIdx = _lastPushedRowID", "startRowIdx");
-            if (numCol != GetNumCols())
+            if (numCol != NumFeatures)
                 throw new ArgumentException("Expected numCol = GetNumCols()", "numCol");
             if (numRow <= 0)
                 throw new ArgumentException("Expected numRow > 0", "numRow");
-            if (startRowIdx > GetNumRows() - numRow)
+            if (startRowIdx > NumRows - numRow)
                 throw new ArgumentException("Expected startRowIdx > GetNumRows() - numRow", "numRow");
 
             PInvokeException.Check(PInvoke.DatasetPushRows(_handle, data, numRow, numCol, startRowIdx),
@@ -112,9 +137,9 @@ namespace LightGBMNet.Interface
         {
             if (startRowIdx != _lastPushedRowID)
                 throw new ArgumentException("Expected startRowIdx = _lastPushedRowID", "startRowIdx");
-            if (startRowIdx >= GetNumRows())
+            if (startRowIdx >= NumRows)
                 throw new ArgumentException("Expected startRowIdx >= GetNumRows()", "startRowIdx");
-            if (numCol != GetNumCols())
+            if (numCol != NumFeatures)
                 throw new ArgumentException("Expected numCol = GetNumCols()", "numCol");
 
             PInvokeException.Check(PInvoke.DatasetPushRowsByCsr(_handle, indPtr, indices, data, nIndptr, numElem, numCol, startRowIdx),
@@ -122,20 +147,26 @@ namespace LightGBMNet.Interface
             _lastPushedRowID = startRowIdx + nIndptr - 1;
         }
 
-        public int GetNumRows()
+        public int NumRows
         {
-            int res = 0;
-            PInvokeException.Check(PInvoke.DatasetGetNumData(_handle, ref res),
-                                   nameof(PInvoke.DatasetGetNumData));
-            return res;
+            get
+            {
+                int res = 0;
+                PInvokeException.Check(PInvoke.DatasetGetNumData(_handle, ref res),
+                                       nameof(PInvoke.DatasetGetNumData));
+                return res;
+            }
         }
 
-        public int GetNumCols()
+        public int NumFeatures
         {
-            int res = 0;
-            PInvokeException.Check(PInvoke.DatasetGetNumFeature(_handle, ref res),
-                                   nameof(PInvoke.DatasetGetNumFeature));
-            return res;
+            get
+            {
+                int res = 0;
+                PInvokeException.Check(PInvoke.DatasetGetNumFeature(_handle, ref res),
+                                       nameof(PInvoke.DatasetGetNumFeature));
+                return res;
+            }
         }
 
         public unsafe void SetLabel(float[] labels)
@@ -143,7 +174,7 @@ namespace LightGBMNet.Interface
             if (labels == null)
                 throw new System.ArgumentNullException("labels");
 
-            if (labels.Length != GetNumRows())
+            if (labels.Length != NumRows)
                 throw new System.ArgumentException("Expected labels to have a length equal to GetNumRows()", "labels");
 
             fixed (float* ptr = labels)
@@ -156,7 +187,7 @@ namespace LightGBMNet.Interface
             if (weights == null)
                 throw new System.ArgumentNullException("weights");
 
-            if(weights.Length != GetNumRows())
+            if(weights.Length != NumRows)
                 throw new System.ArgumentException("Expected weights to have a length equal to GetNumRows()", "weights");
 
             // Skip SetWeights if all weights are same.
@@ -195,7 +226,7 @@ namespace LightGBMNet.Interface
             if (initScores == null)
                 throw new System.ArgumentNullException("initScores");
 
-            if (initScores.Length % GetNumRows() != 0)
+            if (initScores.Length % NumRows != 0)
                 throw new System.ArgumentException("Expected initScores to have a length a multiple of GetNumRows()", "initScores");
 
             fixed (double* ptr = initScores)
@@ -204,14 +235,7 @@ namespace LightGBMNet.Interface
 
         }
 
-        public void SaveBinary(string fileName)
-        {
-            if (fileName == null)
-                throw new System.ArgumentNullException("fileName");
 
-            PInvokeException.Check(PInvoke.DatasetSaveBinary(_handle, fileName),
-                                   nameof(PInvoke.DatasetSaveBinary));
-        }
 
 
 /*
@@ -253,6 +277,19 @@ namespace LightGBMNet.Interface
         }
 */
 
+        /// <summary>
+        /// Create from single matrix
+        /// </summary>
+        //Dataset(float[,] data,bool isRowMajor, Parameters pms = null, Dataset reference = null)
+        //{
+        //    var pmStr = (pms != null) ? pms.ToString() : "";
+        //    var r = (reference != null) ? reference.Handle : IntPtr.Zero;
+        //    var rows = data.GetLength(0);
+        //    var cols = data.GetLength(1);
+
+        //    PInvokeException.Check(PInvoke.DatasetCreateFromMat(data, rows, cols, isRowMajoe, pmStr, r, ref _handle),
+        //                           nameof(PInvoke.DatasetCreateFromMat));
+        //}
 /*
         public static int DatasetCreateFromMat(
             float[] data,
@@ -289,10 +326,10 @@ namespace LightGBMNet.Interface
         }
 */
 
-        public Dataset GetSubset(int[] usedRowIndices, int numUsedRowIndices, string pms)
+        public Dataset GetSubset(int[] usedRowIndices, int numUsedRowIndices, Parameters pms = null)
         {
             IntPtr p = IntPtr.Zero;
-            PInvokeException.Check(PInvoke.DatasetGetSubset(_handle, usedRowIndices, numUsedRowIndices, pms, ref p),
+            PInvokeException.Check(PInvoke.DatasetGetSubset(_handle, usedRowIndices, numUsedRowIndices, (pms != null ? pms.ToString() : ""), ref p),
                                    nameof(PInvoke.DatasetGetSubset));
             return new Dataset(p);
         }
@@ -301,6 +338,9 @@ namespace LightGBMNet.Interface
 
         public void SetFeatureNames(string[] featureNames)
         {
+            if (featureNames.Length != NumFeatures)
+                throw new ArgumentException("Array length inconsistent with number of features (columns", "featureNames");
+
             for (int i = 0; i < featureNames.Length; ++i)
                 if (featureNames[i].Length > MAX_FEATURE_NAME_LENGTH)
                     throw new ArgumentException("Feature name too long", "featureNames");
@@ -321,33 +361,36 @@ namespace LightGBMNet.Interface
             }
         }
 
-        public string[] GetFeatureNames()
+        public string[] FeatureNames
         {
-            var numFeatureNames = this.GetNumCols();
-            var ptrs = new IntPtr[numFeatureNames];
-            for (int i = 0; i < ptrs.Length; ++i) ptrs[i] = IntPtr.Zero;
-            var rslts = new string[numFeatureNames];
-            try
+            get
             {
-                for (int i = 0; i < ptrs.Length; ++i)
-                    ptrs[i] = Marshal.AllocCoTaskMem(2 * MAX_FEATURE_NAME_LENGTH + 1);
-                int retFeatureNames = 0;
-                PInvokeException.Check(PInvoke.DatasetGetFeatureNames(_handle, ptrs, ref retFeatureNames),
-                                       nameof(PInvoke.DatasetGetFeatureNames));
-                if (retFeatureNames != numFeatureNames)
-                    throw new Exception("Unexpected number of feature names returned");
-                for (int i = 0; i < ptrs.Length; ++i)
-                    rslts[i] = Marshal.PtrToStringAnsi(ptrs[i]);
+                var numFeatureNames = this.NumFeatures;
+                var ptrs = new IntPtr[numFeatureNames];
+                for (int i = 0; i < ptrs.Length; ++i) ptrs[i] = IntPtr.Zero;
+                var rslts = new string[numFeatureNames];
+                try
+                {
+                    for (int i = 0; i < ptrs.Length; ++i)
+                        ptrs[i] = Marshal.AllocCoTaskMem(2 * MAX_FEATURE_NAME_LENGTH + 1);
+                    int retFeatureNames = 0;
+                    PInvokeException.Check(PInvoke.DatasetGetFeatureNames(_handle, ptrs, ref retFeatureNames),
+                                           nameof(PInvoke.DatasetGetFeatureNames));
+                    if (retFeatureNames != numFeatureNames)
+                        throw new Exception("Unexpected number of feature names returned");
+                    for (int i = 0; i < ptrs.Length; ++i)
+                        rslts[i] = Marshal.PtrToStringAnsi(ptrs[i]);
+                }
+                finally
+                {
+                    for (int i = 0; i < ptrs.Length; ++i)
+                        Marshal.FreeCoTaskMem(ptrs[i]);
+                }
+                return rslts;
             }
-            finally
-            {
-                for (int i = 0; i < ptrs.Length; ++i)
-                    Marshal.FreeCoTaskMem(ptrs[i]);
-            }
-            return rslts;
         }
 
-        public float[] GetFloatField(string fieldName)
+        private float[] GetFloatField(string fieldName)
         {
             int outLen = 0;
             var typ = PInvoke.CApiDType.Float32;
@@ -360,8 +403,17 @@ namespace LightGBMNet.Interface
             Marshal.Copy(ptr, rslts, 0, outLen);
             return rslts;
         }
+        public float[] GetLabels()
+        {
+            return GetFloatField("label");
+        }
 
-        public double[] GetDoubleField(string fieldName)
+        public float[] GetWeights()
+        {
+            return GetFloatField("weight");
+        }
+
+        private double[] GetDoubleField(string fieldName)
         {
             int outLen = 0;
             var typ = PInvoke.CApiDType.Float32;
@@ -375,7 +427,12 @@ namespace LightGBMNet.Interface
             return rslts;
         }
 
-        public int[] GetInt32Field(string fieldName)
+        public double[] GetInitScore()
+        {
+            return GetDoubleField("init_score");
+        }
+
+        private int[] GetInt32Field(string fieldName)
         {
             int outLen = 0;
             var typ = PInvoke.CApiDType.Float32;
@@ -389,7 +446,13 @@ namespace LightGBMNet.Interface
             return rslts;
         }
 
+        public int[] GetGroups()
+        {
+            return GetInt32Field("groups");
+        }
+
         #region IDisposable
+
         public void Dispose()
         {
             if (_handle != IntPtr.Zero)
@@ -397,6 +460,7 @@ namespace LightGBMNet.Interface
                                        nameof(PInvoke.DatasetFree));
             _handle = IntPtr.Zero;
         }
+        
         #endregion
     }
 }
