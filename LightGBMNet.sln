@@ -3,9 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27703.2026
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LightGBMNet.Interface", "LightGBMNet.Interface\LightGBMNet.Interface.csproj", "{286898F0-C0AC-45F1-9C5B-B204543BFF65}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LightGBMNet.Interface", "LightGBMNet.Interface\LightGBMNet.Interface.csproj", "{286898F0-C0AC-45F1-9C5B-B204543BFF65}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LightGBMNet.Interface.Test", "LightGBMNet.Interface.Test\LightGBMNet.Interface.Test.csproj", "{FC113B67-575B-4251-9C86-E0FB88EB94F4}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LightGBMNet.Interface.Test", "LightGBMNet.Interface.Test\LightGBMNet.Interface.Test.csproj", "{FC113B67-575B-4251-9C86-E0FB88EB94F4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LightGBMNet.Training", "LightGBMNet.Training\LightGBMNet.Training.csproj", "{7535D1E0-454E-442B-8D0C-CFEA2E85C277}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +23,10 @@ Global
 		{FC113B67-575B-4251-9C86-E0FB88EB94F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FC113B67-575B-4251-9C86-E0FB88EB94F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FC113B67-575B-4251-9C86-E0FB88EB94F4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7535D1E0-454E-442B-8D0C-CFEA2E85C277}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7535D1E0-454E-442B-8D0C-CFEA2E85C277}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7535D1E0-454E-442B-8D0C-CFEA2E85C277}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7535D1E0-454E-442B-8D0C-CFEA2E85C277}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

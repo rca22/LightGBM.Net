@@ -14,7 +14,7 @@ namespace LightGBMNet.Interface
     /// <summary>
     /// Definition of Allgather funtion
     /// </summary>
-    public delegate void AllgatherFunction([MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 1)]byte[] input, int inputSize,
+    public delegate void AllGatherFunction([MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 1)]byte[] input, int inputSize,
         [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 4)]int[] blockStart, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 4)]int[] blockLen, int numBlock,
         [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 6)]byte[] output, int outputSize);
 
@@ -24,40 +24,17 @@ namespace LightGBMNet.Interface
     /// </summary>
     internal static class PInvoke
     {
-        public enum CApiDType : int
+        /// <summary>
+        /// Need to specify an assumption on the feature name size.
+        /// </summary>
+        public static int MAX_PREALLOCATED_STRING_LENGTH = 100;
+
+        internal enum CApiDType : int
         {
             Float32 = 0,
             Float64 = 1,
             Int32   = 2,
             Int64   = 3
-        }
-
-        public enum CApiPredictType : int
-        {
-            /// <summary>
-            /// normal prediction, with transform(if needed)
-            /// </summary>
-            Normal = 0,
-
-            /// <summary>
-            /// Raw score
-            /// </summary>
-            RawScore = 1,
-
-            /// <summary>
-            /// Leaf index
-            /// </summary>
-            LeafIndex = 2,
-            /// <summary>
-            /// Contribution
-            /// </summary>
-            Contrib = 3
-        }
-
-        public enum CApiImportanceType : int
-        {
-            Split = 0,
-            Gain  = 1
         }
 
         //public enum FieldName : int
@@ -468,16 +445,6 @@ namespace LightGBMNet.Interface
             int len,
             CApiDType type);
 
-        //public static int DatasetSetField(
-        //    IntPtr handle,
-        //    FieldName fieldName,
-        //    IntPtr array,
-        //    int len,
-        //    CApiDType type)
-        //{
-        //    return DatasetSetField(handle, GetFieldNameString(fieldName), array, len, type);
-        //}
-
         /// <summary>
         /// get info vector from dataset
         /// </summary>
@@ -580,7 +547,7 @@ namespace LightGBMNet.Interface
         /// Add new validation to booster
         /// </summary>
         /// <param name="handle">handle</param>
-        /// <param name="validset">alidation data set</param>
+        /// <param name="validset">validation data set</param>
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_BoosterAddValidData", CallingConvention = CallingConvention.StdCall)]
         public static extern int BoosterAddValidData(IntPtr handle, IntPtr validset);
@@ -699,7 +666,7 @@ namespace LightGBMNet.Interface
         /// <param name="outStrs">names of eval result, need to pre-allocate memory before call this</param>
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_BoosterGetEvalNames", CallingConvention = CallingConvention.StdCall)]
-        public static extern int BoosterGetEvalNames(IntPtr handle, ref int outLen, ref IntPtr[] outStrs);
+        public static extern int BoosterGetEvalNames(IntPtr handle, ref int outLen, IntPtr[] outStrs);
 
         /// <summary>
         /// Get name of features
@@ -709,7 +676,7 @@ namespace LightGBMNet.Interface
         /// <param name="outStrs">names of features, need to pre-allocate memory before call this</param>
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_BoosterGetFeatureNames", CallingConvention = CallingConvention.StdCall)]
-        public static extern int BoosterGetFeatureNames(IntPtr handle, ref int outLen, ref IntPtr[] outStrs);
+        public static extern int BoosterGetFeatureNames(IntPtr handle, ref int outLen, IntPtr[] outStrs);
 
         /// <summary>
         /// Get number of features
@@ -782,7 +749,7 @@ namespace LightGBMNet.Interface
             IntPtr handle,
             string dataFilename,
             int dataHasHeader,//really boolean
-            CApiPredictType predictType,
+            int predictType,
             int numIteration,
             [MarshalAs(UnmanagedType.LPStr)] string parameter,
             ref string fileName);
@@ -800,7 +767,7 @@ namespace LightGBMNet.Interface
         public static extern int BoosterCalcNumPredict(
             IntPtr handle,
             int numRow,
-            CApiPredictType predictType,
+            int predictType,
             int numIteration,
             ref long outLen);
 
@@ -836,7 +803,7 @@ namespace LightGBMNet.Interface
             long nIndPtr,
             long nElem,
             long numCol,
-            CApiPredictType predictType,
+            int predictType,
             int numIteration,
             [MarshalAs(UnmanagedType.LPStr)] string parameter,
             ref long outLen,
@@ -850,7 +817,7 @@ namespace LightGBMNet.Interface
             long nIndPtr,
             long nElem,
             long numCol,
-            CApiPredictType predictType,
+            int predictType,
             int numIteration,
             [MarshalAs(UnmanagedType.LPStr)] string parameter,
             ref long outLen,
@@ -894,7 +861,7 @@ namespace LightGBMNet.Interface
             long nColPtr,
             long nElem,
             long numRow,
-            CApiPredictType predictType,
+            int predictType,
             int numIteration,
             [MarshalAs(UnmanagedType.LPStr)] string parameter,
             ref long outLen,
@@ -908,7 +875,7 @@ namespace LightGBMNet.Interface
             long nColPtr,
             long nElem,
             long numRow,
-            CApiPredictType predictType,
+            int predictType,
             int numIteration,
             [MarshalAs(UnmanagedType.LPStr)] string parameter,
             ref long outLen,
@@ -946,7 +913,7 @@ namespace LightGBMNet.Interface
             int nRow,
             int nCol,
             int isRowMajor,
-            CApiPredictType predictType,
+            int predictType,
             int numIteration,
             [MarshalAs(UnmanagedType.LPStr)] string parameter,
             ref long outLen,
@@ -958,7 +925,7 @@ namespace LightGBMNet.Interface
             int nRow,
             int nCol,
             bool isRowMajor,
-            CApiPredictType predictType,
+            int predictType,
             int numIteration,
             [MarshalAs(UnmanagedType.LPStr)] string parameter,
             ref long outLen,
@@ -981,7 +948,7 @@ namespace LightGBMNet.Interface
         /// <param name="fileName">file name</param>
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_BoosterSaveModel", CallingConvention = CallingConvention.StdCall)]
-        private static extern unsafe int BoosterSaveModel(
+        public static extern unsafe int BoosterSaveModel(
             IntPtr handle,
             int startIteration,
             int numIteration,
@@ -998,9 +965,10 @@ namespace LightGBMNet.Interface
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_BoosterSaveModelToString", CallingConvention = CallingConvention.StdCall)]
         public static extern unsafe int BoosterSaveModelToString(IntPtr handle,
+            int startIteration,
             int numIteration,
-            int bufferLen,
-            ref int outLen,
+            long bufferLen,
+            ref long outLen,
             byte* outStr);//remember a .Net char is unicode...
 
         /// <summary>
@@ -1064,7 +1032,7 @@ namespace LightGBMNet.Interface
         public static extern unsafe int BoosterFeatureImportance(
             IntPtr handle,
             int numIteration,
-            CApiImportanceType importanceType,
+            int importanceType,
             double* outResults);
 
         /// <summary>
@@ -1090,7 +1058,7 @@ namespace LightGBMNet.Interface
         public static extern int NetworkFree();
 
         [DllImport(DllName, EntryPoint = "LGBM_NetworkInitWithFunctions", CallingConvention = CallingConvention.StdCall)]
-        public static extern int NetworkInitWithFunctions(int numMachines, int rank, ReduceScatterFunction reduceScatterFuncPtr, AllgatherFunction allgatherFuncPtr);
+        public static extern int NetworkInitWithFunctions(int numMachines, int rank, ReduceScatterFunction reduceScatterFuncPtr, AllGatherFunction allgatherFuncPtr);
 
         #endregion
 
