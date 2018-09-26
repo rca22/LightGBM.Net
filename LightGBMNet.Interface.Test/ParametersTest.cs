@@ -44,6 +44,11 @@ namespace LightGBMNet.Interface.Test
             else
                 return false;
         }
+
+        public override int GetHashCode()
+        {
+            return base.GetHashCode();
+        }
     }
 
     public class ParamsHelperTest
@@ -115,18 +120,18 @@ namespace LightGBMNet.Interface.Test
     public class ParametersTest
     {
         [Fact]
-        public void TestGPUParametersDefault()
+        public void TestDatasetParametersDefault()
         {
-            var x = new GPUParameters();
+            var x = new DatasetParameters();
             var result = new Dictionary<string, string>();
             x.AddParameters(result);
             Assert.Empty(result);
         }
 
         [Fact]
-        public void TestNetworkParametersDefault()
+        public void TestCommonParametersDefault()
         {
-            var x = new NetworkParameters();
+            var x = new CommonParameters();
             var result = new Dictionary<string, string>();
             x.AddParameters(result);
             Assert.Empty(result);

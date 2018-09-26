@@ -13,7 +13,7 @@ namespace LightGBMNet.Interface.Test
         [Fact]
         public void FromConfig()
         {
-            using (var nc = new NetworkConfig(new NetworkParameters()))
+            using (var nc = new NetworkConfig(new CommonParameters()))
             {
             }
         }

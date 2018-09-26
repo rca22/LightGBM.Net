@@ -486,6 +486,30 @@ namespace LightGBMNet.Interface
                     throw new ArgumentException("DeviceType not recognised");
             }
         }
+
+        public static string GetVerbosityString(VerbosityType v)
+        {
+            switch(v)
+            {
+                case VerbosityType.Fatal: return "-1";
+                case VerbosityType.Error: return "0";
+                case VerbosityType.Info: return "1";
+                default:
+                    throw new ArgumentException("VerbosityType not recognised");
+            }
+        }
+
+        public static VerbosityType ParseVerbosity(string x)
+        {
+            switch (x)
+            {
+                case "-1": return VerbosityType.Fatal;
+                case "0" : return VerbosityType.Error;
+                case "1" : return VerbosityType.Info;
+                default:
+                    throw new ArgumentException("VerbosityType not recognised");
+            }
+        }
     }
 
     public static class ParamsHelper
@@ -555,6 +579,8 @@ namespace LightGBMNet.Interface
                 return x => (object)EnumHelper.ParseTreeLearner(x);
             else if (typ == typeof(DeviceType))
                 return x => (object)EnumHelper.ParseDevice(x);
+            else if (typ == typeof(VerbosityType))
+                return x => (object)EnumHelper.ParseVerbosity(x);
             else
                 throw new Exception(String.Format("Unhandled parameter type {0}", typ));
         }
@@ -589,6 +615,8 @@ namespace LightGBMNet.Interface
                 return x => EnumHelper.GetTreeLearnerString((TreeLearnerType)x);
             else if (typ == typeof(DeviceType))
                 return x => EnumHelper.GetDeviceString((DeviceType)x);
+            else if (typ == typeof(VerbosityType))
+                return x => EnumHelper.GetVerbosityString((VerbosityType)x);
             else
                 throw new Exception(String.Format("Unhandled parameter type {0}", typ));
         }
@@ -697,6 +725,129 @@ namespace LightGBMNet.Interface
         }
     }
 
+    public class DatasetParameters : ParametersBase<DatasetParameters>
+    {
+        #region Properties
+
+        private int _maxBin = 255;
+        public int MaxBin
+        {
+            get { return _maxBin; }
+            set
+            {
+                if (value <= 1)
+                    throw new ArgumentOutOfRangeException("max_bin");
+                _maxBin = value;
+            }
+        }
+
+        private int _minDataInBin = 3;
+        public int MinDataInBin
+        {
+            get { return _minDataInBin; }
+            set
+            {
+                if (value <= 0)
+                    throw new ArgumentOutOfRangeException("min_data_in_bin");
+                _minDataInBin = value;
+            }
+        }
+
+        private int _binConstructSampleCnt = 200000;
+        public int BinConstructSampleCnt
+        {
+            get { return _binConstructSampleCnt; }
+            set
+            {
+                if (value <= 0)
+                    throw new ArgumentOutOfRangeException("bin_construct_sample_cnt");
+                _binConstructSampleCnt = value;
+            }
+        }
+
+        public double DataRandomSeed { get; set; } = 1;
+
+        public bool EnableBundle { get; set; } = true;
+
+        private double _maxConflictRate = 0.0;
+        public double MaxConflictRate
+        {
+            get { return _maxConflictRate; }
+            set
+            {
+                if (value < 0.0 || value >= 1.0)
+                    throw new ArgumentOutOfRangeException("max_conflict_rate");
+                _maxConflictRate = value;
+            }
+        }
+
+        public bool IsEnableSparse { get; set; } = true;
+
+        private double _sparseThreshold = 0.8;
+        public double SparseThreshold
+        {
+            get { return _sparseThreshold; }
+            set
+            {
+                if (value <= 0.0 || value > 1.0)
+                    throw new ArgumentOutOfRangeException("sparse_threshold");
+                _sparseThreshold = value;
+            }
+        }
+
+        public bool UseMissing { get; set; } = true;
+
+        public bool ZeroAsMissing { get; set; } = false;
+
+        public bool TwoRound { get; set; } = false;
+
+        public bool Header { get; set; } = false;
+
+        public string LabelColumn { get; set; } = "";
+
+        public string WeightColumn { get; set; } = "";
+
+        public string GroupColumn { get; set; } = "";
+
+        //TODO: int array?
+        public string IgnoreColumn { get; set; } = "";
+
+        //TODO
+        public string CategoricalFeature { get; set; } = "";
+
+        private int _minDataInLeaf = 20;
+        public int MinDataInLeaf
+        {
+            get { return _minDataInLeaf; }
+            set
+            {
+                if (value < 0)
+                    throw new ArgumentOutOfRangeException("MinDataInLeaf");
+                _minDataInLeaf = value;
+            }
+        }
+
+        //TODO multi-int
+        public string MonotoneConstraints { get; set; } = "None";
+
+        //TODO multi-double
+        public string FeatureContri { get; set; } = "None";
+        #endregion
+
+        public DatasetParameters() : base() { }
+
+        public DatasetParameters(Dictionary<string, string> data)
+        {
+            FromParameters(data);
+        }
+
+        public override void AddParameters(Dictionary<string, string> result)
+        {
+            _helper.AddParameters(this, result);
+        }
+
+    }
+
     public class CoreParameters : ParametersBase<CoreParameters>
     {
         #region Properties
@@ -751,10 +902,6 @@ namespace LightGBMNet.Interface
 
         public TreeLearnerType TreeLearner { get; set; } = TreeLearnerType.Serial;
 
-        public int NumThreads { get; set; } = 0;
-
-        public DeviceType DeviceType { get; set; } = DeviceType.CPU;
-
         public int Seed { get; set; } = 0;
 
         #endregion
@@ -777,18 +924,6 @@ namespace LightGBMNet.Interface
         #region Properties
 
         public int MaxDepth { get; set; } = -1;
-
-        private int _minDataInLeaf = 20;
-        public int MinDataInLeaf
-        {
-            get { return _minDataInLeaf; }
-            set
-            {
-                if (value < 0)
-                    throw new ArgumentOutOfRangeException("MinDataInLeaf");
-                _minDataInLeaf = value;
-            }
-        }
 
         private double _minSumHessianInLeaf = 1e-3;
         public double MinSumHessianInLeaf
@@ -1007,12 +1142,6 @@ namespace LightGBMNet.Interface
             }
         }
 
-        //TODO multi-int
-        public string MonotoneConstraints { get; set; } = "None";
-
-        //TODO multi-double
-        public string FeatureContri { get; set; } = "None";
-
         public string ForcedsplitsFilename { get; set; } = "";
 
         private double _refitDecayRate = 0.9;
@@ -1047,49 +1176,8 @@ namespace LightGBMNet.Interface
     {
         #region Properties
 
-        // Note, persisted as an int because we expect the file to contain -1,0,or 1, not strings.
-        public int Verbosity { get; set; } = (int)VerbosityType.Info;
-        public void SetVerbosity(VerbosityType vt) { Verbosity = (int)vt; }
-
-        private int _maxBin = 255;
-        public int MaxBin
-        {
-            get { return _maxBin; }
-            set
-            {
-                if (value <= 1)
-                    throw new ArgumentOutOfRangeException("max_bin");
-                _maxBin = value;
-            }
-        }
-
-        private int _minDataInBin = 3;
-        public int MinDataInBin
-        {
-            get { return _minDataInBin; }
-            set
-            {
-                if (value <= 0)
-                    throw new ArgumentOutOfRangeException("min_data_in_bin");
-                _minDataInBin = value;
-            }
-        }
-
-        private int _binConstructSampleCnt = 200000;
-        public int BinConstructSampleCnt
-        {
-            get { return _binConstructSampleCnt; }
-            set
-            {
-                if (value <= 0)
-                    throw new ArgumentOutOfRangeException("bin_construct_sample_cnt");
-                _binConstructSampleCnt = value;
-            }
-        }
-
+        // used in serial learner
         public double HistogramPoolSize { get; set; } = -1.0;
-
-        public double DataRandomSeed { get; set; } = 1;
 
         public string OutputModel { get; set; } = "LightGBM_model.txt";
 
@@ -1103,57 +1191,9 @@ namespace LightGBMNet.Interface
 
         public string ValidDataInitscores { get; set; } = "";
 
-        public bool EnableBundle { get; set; } = true;
-
-        private double _maxConflictRate = 0.0;
-        public double MaxConflictRate
-        {
-            get { return _maxConflictRate; }
-            set
-            {
-                if (value < 0.0 || value >= 1.0)
-                    throw new ArgumentOutOfRangeException("max_conflict_rate");
-                _maxConflictRate = value;
-            }
-        }
-
-        public bool IsEnableSparse { get; set; } = true;
-
-        private double _sparseThreshold = 0.8;
-        public double SparseThreshold
-        {
-            get { return _sparseThreshold; }
-            set
-            {
-                if (value <= 0.0 || value > 1.0)
-                    throw new ArgumentOutOfRangeException("sparse_threshold");
-                _sparseThreshold = value;
-            }
-        }
-
-        public bool UseMissing { get; set; } = true;
-
-        public bool ZeroAsMissing { get; set; } = false;
-
-        public bool TwoRound { get; set; } = false;
-
         public bool SaveBinary { get; set; } = false;
 
         public bool EnableLoadFromBinaryFile { get; set; } = true;
-
-        public bool Header { get; set; } = false;
-
-        public string LabelColumn { get; set; } = "";
-
-        public string WeightColumn { get; set; } = "";
-
-        public string GroupColumn { get; set; } = "";
-
-        //TODO
-        public string IgnoreColumn { get; set; } = "";
-
-        //TODO
-        public string CategoricalFeature { get; set; } = "";
 
         public bool PredictRawScore { get; set; } = false;
 
@@ -1170,12 +1210,10 @@ namespace LightGBMNet.Interface
         public string ConvertModelLanguage { get; set; } = "";
 
         public string ConvertModel { get; set; } = "gbdt_prediction.cpp";
-
         #endregion
+        public IOParameters() : base() { }
 
-        public IOParameters() : base() {}
-
-        public IOParameters (Dictionary<string, string> data)
+        public IOParameters(Dictionary<string, string> data)
         {
             FromParameters(data);
         }
@@ -1184,7 +1222,6 @@ namespace LightGBMNet.Interface
         {
             _helper.AddParameters(this, result);
         }
-
     }
 
     public class ObjectiveParameters : ParametersBase<ObjectiveParameters>
@@ -1351,7 +1388,7 @@ namespace LightGBMNet.Interface
             }
         }
 
-        public bool IsProvidingTrainingMetric { get; set; } = false;
+        public bool IsProvideTrainingMetric { get; set; } = false;
 
         private static readonly int[] _defEvalAt = new int[] { 1, 2, 3, 4, 5 };
         public int[] EvalAt { get; set; } = _defEvalAt;
@@ -1374,8 +1411,15 @@ namespace LightGBMNet.Interface
         }
     }
 
-    public class NetworkParameters : ParametersBase<NetworkParameters>
+    /// <summary>
+    /// Contains both network, verbosity and threading parameters.
+    /// </summary>
+    public class CommonParameters : ParametersBase<CommonParameters>
     {
+        // Note, persisted as an int because we expect the file to contain -1,0,or 1, not strings.
+        public VerbosityType Verbosity { get; set; } = VerbosityType.Info;
+        
+        #region Network
         private int _numMachines = 1;
         public int NumMachines
         {
@@ -1415,35 +1459,21 @@ namespace LightGBMNet.Interface
         public string MachineListFilename { get; set; } = "";
 
         public string Machines { get; set; } = "";
+        #endregion
 
-        public NetworkParameters(Dictionary<string, string> data)
-        {
-            FromParameters(data);
-        }
+        public int NumThreads { get; set; } = 0;
 
-        public override void AddParameters(Dictionary<string, string> result)
-        {
-            _helper.AddParameters(this, result);
-        }
+        public DeviceType DeviceType { get; set; } = DeviceType.CPU;
 
-        public NetworkParameters()
-        {
-        }
-    }
-
-    public class GPUParameters : ParametersBase<GPUParameters>
-    {
+        #region GPU
         public int GPUPlatformId { get; set; } = -1;
 
         public int GPUDeviceId { get; set; } = -1;
 
         public bool GPUUseDP { get; set; } = false;
+        #endregion
 
-        public GPUParameters()
-        {
-        }
-
-        public GPUParameters(Dictionary<string, string> data)
+        public CommonParameters(Dictionary<string, string> data)
         {
             FromParameters(data);
         }
@@ -1452,12 +1482,20 @@ namespace LightGBMNet.Interface
         {
             _helper.AddParameters(this, result);
         }
+
+        public CommonParameters()
+        {
+        }
     }
+  
 
     public class Parameters
     {
-        public GPUParameters GPU { get; set; }
-        public NetworkParameters Network { get; set; }
+        // these two impact dataset construction
+        public CommonParameters Common { get; set; }
+        public DatasetParameters Dataset { get; set; }
+
+        // these don't
         public MetricParameters Metric { get; set; }
         public ObjectiveParameters Objective { get; set; }
         public LearningControlParameters Learning { get; set; }
@@ -1466,8 +1504,8 @@ namespace LightGBMNet.Interface
 
         public Parameters()
         {
-            GPU = new GPUParameters();
-            Network = new NetworkParameters();
+            Common = new CommonParameters();
+            Dataset = new DatasetParameters();
             Metric = new MetricParameters();
             Objective = new ObjectiveParameters();
             Learning = new LearningControlParameters();
@@ -1478,8 +1516,8 @@ namespace LightGBMNet.Interface
         public Parameters(string v)
         {
             var dict = ParamsHelper.SplitParameters(v);
-            GPU = GPUParameters.FromParameters(dict);
-            Network = NetworkParameters.FromParameters(dict);
+            Common = CommonParameters.FromParameters(dict);
+            Dataset = DatasetParameters.FromParameters(dict);
             Metric = MetricParameters.FromParameters(dict);
             Objective = ObjectiveParameters.FromParameters(dict);
             Learning = LearningControlParameters.FromParameters(dict);
@@ -1490,8 +1528,8 @@ namespace LightGBMNet.Interface
         public override string ToString()
         {
             var dict = new Dictionary<string, string>();
-            GPU.AddParameters(dict);
-            Network.AddParameters(dict);
+            Common.AddParameters(dict);
+            Dataset.AddParameters(dict);
             Metric.AddParameters(dict);
             Objective.AddParameters(dict);
             Learning.AddParameters(dict);

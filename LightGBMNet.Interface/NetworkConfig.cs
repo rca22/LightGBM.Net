@@ -10,7 +10,7 @@ namespace LightGBMNet.Interface
     /// </summary>
     public sealed class NetworkConfig : IDisposable
     {
-        public NetworkConfig (NetworkParameters pms)
+        public NetworkConfig (CommonParameters pms)
         {
             PInvokeException.Check(PInvoke.NetworkInit(pms.Machines, pms.LocalListenPort, pms.TimeOut, pms.NumMachines),
                                    nameof(PInvoke.NetworkInit));

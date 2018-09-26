@@ -31,7 +31,7 @@ namespace LightGBMNet.Interface.Test
                 using (var dataSet = DatasetTest.CreateRandom(rand))
                 {
                     var pms = new Parameters();
-                    pms.IO.Verbosity = -1;
+                    pms.Common.Verbosity = VerbosityType.Error;
                     using (var booster = new Booster(pms, dataSet))
                     {
                         // must have the same characteristics for binning to be able to do this.
@@ -124,7 +124,7 @@ namespace LightGBMNet.Interface.Test
                     if (metric != MetricType.Ndcg && metric != MetricType.Map)
                     {
                         pms.Metric.Metric = metric;
-                        pms.Metric.IsProvidingTrainingMetric = true;
+                        pms.Metric.IsProvideTrainingMetric = true;
                         using (var booster = new Booster(pms, dataSet))
                         {
                             var numEval = booster.EvalCounts;

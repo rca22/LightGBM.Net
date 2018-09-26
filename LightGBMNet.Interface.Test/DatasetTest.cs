@@ -47,9 +47,10 @@ namespace LightGBMNet.Interface.Test
             for (int i = 0; i < numColumns; ++i) sizePerColumn[i] = numTotalRow;
 
 
-            var parameters = new Parameters();
-            parameters.Learning.MinDataInLeaf = 1;
-            parameters.IO.MinDataInBin = 1;
+            var cp = new CommonParameters();
+            var dp = new DatasetParameters();
+            dp.MinDataInLeaf = 1;
+            dp.MinDataInBin = 1;
 
             var ds = new Dataset(columns,
                                sampleIndices,
@@ -57,7 +58,8 @@ namespace LightGBMNet.Interface.Test
                                sizePerColumn,
                                numSampleRow,
                                numTotalRow,
-                               parameters);
+                               cp,
+                               dp);
             Assert.Equal(numTotalRow, ds.NumRows);
             Assert.Equal(numColumns, ds.NumFeatures);
             return ds;
@@ -143,7 +145,7 @@ namespace LightGBMNet.Interface.Test
                     {
                         ds.SaveBinary(fileName);
 
-                        using (var ds2 = new Dataset(fileName, new Parameters()))
+                        using (var ds2 = new Dataset(fileName, null, null))
                         {
                             Assert.Equal(ds2.NumFeatures, ds.NumFeatures);
                             Assert.Equal(ds2.NumRows, ds.NumRows);

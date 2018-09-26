@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 namespace LightGBMNet.Interface
@@ -12,6 +13,14 @@ namespace LightGBMNet.Interface
         private int _lastPushedRowID;
         internal IntPtr Handle => _handle;
 
+        private static string ParamsToString(CommonParameters cp, DatasetParameters dp)
+        {
+            var dict = new Dictionary<string, string>();
+            if (cp != null) cp.AddParameters(dict);
+            if (dp != null) dp.AddParameters(dict);
+            return ParamsHelper.JoinParameters(dict);
+        }
+
         private Dataset(IntPtr h)
         {
             _handle = h;
@@ -23,9 +32,9 @@ namespace LightGBMNet.Interface
             int[] sampleNonZeroCntPerColumn,
             int numSampleRow,
             int numTotalRow,
-            Parameters param, float[] labels = null, float[] weights = null, int[] groups = null)
+            CommonParameters cp, DatasetParameters dp, float[] labels = null, float[] weights = null, int[] groups = null)
         {
-            Check.NonNull(param, nameof(param));
+            var pmString = ParamsToString(cp, dp);
 
             _handle = IntPtr.Zero;
 
@@ -48,7 +57,7 @@ namespace LightGBMNet.Interface
                 {
                     PInvokeException.Check(PInvoke.DatasetCreateFromSampledColumn(
                         (IntPtr)ptrValues, (IntPtr)ptrIndices, numCol, sampleNonZeroCntPerColumn, numSampleRow, numTotalRow,
-                        param.ToString(), ref _handle),nameof(PInvoke.DatasetCreateFromSampledColumn));
+                        pmString, ref _handle),nameof(PInvoke.DatasetCreateFromSampledColumn));
                 }
             }
             finally
@@ -90,7 +99,7 @@ namespace LightGBMNet.Interface
         }
 
         // Load a dataset from file, adding additional parameters and using the optional reference dataset to align bins
-        public Dataset(string fileName, Parameters pm, Dataset reference = null)
+        public Dataset(string fileName, CommonParameters cp, DatasetParameters dp, Dataset reference = null)
         {
             Check.NonNull(fileName,nameof(fileName));
             if (!System.IO.File.Exists(fileName))
@@ -98,11 +107,11 @@ namespace LightGBMNet.Interface
             if (!fileName.EndsWith(".bin"))
                 throw new ArgumentException(String.Format("File {0} is not a .bin file", fileName));
 
-            Check.NonNull(pm, nameof(pm));
+            var pmString = ParamsToString(cp, dp);
 
             IntPtr refHandle = (reference == null ? IntPtr.Zero : reference.Handle);
 
-            PInvokeException.Check(PInvoke.DatasetCreateFromFile(fileName.Substring(0,fileName.Length-4), pm.ToString(), refHandle, ref _handle),
+            PInvokeException.Check(PInvoke.DatasetCreateFromFile(fileName.Substring(0,fileName.Length-4), pmString, refHandle, ref _handle),
                                    nameof(PInvoke.DatasetCreateFromFile));
         }
 
@@ -326,10 +335,11 @@ namespace LightGBMNet.Interface
         }
 */
 
-        public Dataset GetSubset(int[] usedRowIndices, int numUsedRowIndices, Parameters pms = null)
+        public Dataset GetSubset(int[] usedRowIndices, int numUsedRowIndices, CommonParameters cp = null, DatasetParameters dp = null)
         {
+            var pmString = ParamsToString(cp, dp);
             IntPtr p = IntPtr.Zero;
-            PInvokeException.Check(PInvoke.DatasetGetSubset(_handle, usedRowIndices, numUsedRowIndices, (pms != null ? pms.ToString() : ""), ref p),
+            PInvokeException.Check(PInvoke.DatasetGetSubset(_handle, usedRowIndices, numUsedRowIndices, pmString, ref p),
                                    nameof(PInvoke.DatasetGetSubset));
             return new Dataset(p);
         }
