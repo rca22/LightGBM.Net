@@ -339,7 +339,7 @@ namespace LightGBMNet.Interface
                 case ObjectiveType.Huber:        return "huber";
                 case ObjectiveType.Fair:         return "fair";
                 case ObjectiveType.Poisson:      return "poisson";
-                case ObjectiveType.Quantile:     return "quartile";
+                case ObjectiveType.Quantile:     return "quantile";
                 case ObjectiveType.Mape:         return "mape";
                 case ObjectiveType.Gamma:        return "gamma";
                 case ObjectiveType.Tweedie:      return "tweedie";
@@ -373,7 +373,7 @@ namespace LightGBMNet.Interface
                 case "huber":         return ObjectiveType.Huber;
                 case "fair":          return ObjectiveType.Fair;
                 case "poisson":       return ObjectiveType.Poisson;
-                case "quartile":      return ObjectiveType.Quantile;
+                case "quantile":      return ObjectiveType.Quantile;
                 case "mape":
                 case "mean_absolute_percentage_error":
                     return ObjectiveType.Mape;
@@ -728,6 +728,9 @@ namespace LightGBMNet.Interface
     public class DatasetParameters : ParametersBase<DatasetParameters>
     {
         #region Properties
+
+        // Not a true parameter, just controls size of batches when copying data across to Dataset
+        public int BatchSize => 1 << 20;
 
         private int _maxBin = 255;
         public int MaxBin

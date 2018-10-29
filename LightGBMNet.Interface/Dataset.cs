@@ -32,7 +32,11 @@ namespace LightGBMNet.Interface
             int[] sampleNonZeroCntPerColumn,
             int numSampleRow,
             int numTotalRow,
-            CommonParameters cp, DatasetParameters dp, float[] labels = null, float[] weights = null, int[] groups = null)
+            CommonParameters cp,
+            DatasetParameters dp,
+            float[] labels = null,
+            float[] weights = null,
+            int[] groups = null)
         {
             var pmString = ParamsToString(cp, dp);
 
@@ -81,6 +85,68 @@ namespace LightGBMNet.Interface
                 throw new Exception("Expected GetNumCols to be equal to numCol");
 
             if (NumRows != numTotalRow)
+                throw new Exception("Expected GetNumRows to be equal to numTotalRow");
+        }
+
+        public unsafe Dataset(float[][] data,
+            int numCol,
+            CommonParameters cp,
+            DatasetParameters dp,
+            float[] labels = null,
+            float[] weights = null,
+            int[] groups = null,
+            Dataset reference = null)
+        {
+            var pmString = ParamsToString(cp, dp);
+
+            _handle = IntPtr.Zero;
+
+            var gcHandles = new List<GCHandle>(data.Length);
+            try
+            {
+                float*[] dataPtrs = new float*[data.Length];
+                int[] nRows = new int[data.Length];
+                for (int i = 0; i < data.Length; i++)
+                {
+                    var hdl = GCHandle.Alloc(data[i], GCHandleType.Pinned);
+                    gcHandles.Add(hdl);
+                    dataPtrs[i] = (float*)hdl.AddrOfPinnedObject().ToPointer();
+                    nRows[i] = 1;
+                };
+                fixed (float** dataPtr = dataPtrs)
+                fixed (int* nRowsPtr = nRows)
+                {
+                    PInvokeException.Check(PInvoke.DatasetCreateFromMats(
+                        data.Length,
+                        dataPtr,
+                        nRowsPtr,
+                        numCol,
+                        /*isRowMajor*/true,
+                        pmString,
+                        reference?._handle ?? IntPtr.Zero,
+                        ref _handle
+                        ), nameof(PInvoke.DatasetCreateFromMats));
+                }
+            }
+            finally
+            {
+                foreach (var hdl in gcHandles)
+                {
+                    if (hdl.IsAllocated)
+                        hdl.Free();
+                };
+            }
+            if (labels != null)
+                SetLabel(labels);
+            if (weights != null)
+                SetWeights(weights);
+            if (groups != null)
+                SetGroup(groups);
+
+            if (NumFeatures != numCol)
+                throw new Exception("Expected GetNumCols to be equal to numCol");
+
+            if (NumRows != data.Length)
                 throw new Exception("Expected GetNumRows to be equal to numTotalRow");
         }
 

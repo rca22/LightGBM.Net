@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -478,6 +479,25 @@ namespace LightGBMNet.Interface
             PInvokeException.Check(PInvoke.BoosterShuffleModels(Handle), nameof(PInvoke.BoosterShuffleModels));
         }
 
+        public unsafe double [] PredictForMat(PredictType predictType, float [] data)
+        {
+            long outLen = NumClasses; // TODO
+            double[] outResult = new double[outLen];
+            fixed (double* ptr = outResult)
+                PInvokeException.Check(PInvoke.BoosterPredictForMat( Handle
+                                                                   , data
+                                                                   , /*nRow*/1
+                                                                   , /*nCol*/data.Length
+                                                                   , /*isRowMajor*/true
+                                                                   , (PInvoke.CApiPredictType)predictType
+                                                                   , /*numIteration*/0
+                                                                   , ""
+                                                                   , ref outLen
+                                                                   , ptr
+                                                                   ), nameof(PInvoke.BoosterPredictForMat));
+            return outResult;
+        }
+
         //To Do: store this matrix efficiently.
         public void Refit(int[,] leafPreds)
         {
@@ -503,34 +523,31 @@ namespace LightGBMNet.Interface
 
         public unsafe double[] GetPredict(int dataIdx)
         {
-            var numPredict = GetNumPredict(dataIdx);
-            long outLen = 0;
+            long outLen = GetNumPredict(dataIdx);
             double[] res = new double[outLen];
             fixed (double* ptr = res)
             {
                 PInvokeException.Check(PInvoke.BoosterGetPredict(Handle, dataIdx, ref outLen, ptr),
-                                      nameof(PInvoke.BoosterGetPredict));
+                                    nameof(PInvoke.BoosterGetPredict));
             }
-            var copy = new double[outLen];
-            Array.Copy(res, copy, outLen);
-            return copy;
+            Debug.Assert(outLen == res.Length);
+            return res;
         }
 
         // Calculate the number of predictions for a dataset with a given number of rows and iterations.
         public long CalcNumPredict(int numRow, PredictType predType, int numIteration)
         {
             long outLen = 0L;
-            PInvokeException.Check(PInvoke.BoosterCalcNumPredict(Handle, numRow, (int)predType, numIteration, ref outLen),
+            PInvokeException.Check(PInvoke.BoosterCalcNumPredict(Handle, numRow, (PInvoke.CApiPredictType)predType, numIteration, ref outLen),
                                   nameof(PInvoke.BoosterCalcNumPredict));
             return outLen;
         }
 
 
 
-        /*
-        public FastTree.Internal.Ensemble GetModel(int[] categoricalFeatureBoudaries)
+        public LightGBMNet.FastTree.Ensemble GetModel() // int[] categoricalFeatureBoudaries)
         {
-            FastTree.Internal.Ensemble res = new FastTree.Internal.Ensemble();
+            LightGBMNet.FastTree.Ensemble res = new LightGBMNet.FastTree.Ensemble();
             string modelString = GetModelString();
             string[] lines = modelString.Split('\n');
             int i = 0;
@@ -543,7 +560,7 @@ namespace LightGBMNet.Interface
                     while (!lines[i].StartsWith("Tree=") && lines[i].Trim().Length != 0)
                     {
                         string[] kv = lines[i].Split('=');
-                        Contracts.Check(kv.Length == 2);
+                        if (kv.Length != 2) throw new FormatException();
                         kvPairs[kv[0].Trim()] = kv[1].Trim();
                         ++i;
                     }
@@ -558,15 +575,15 @@ namespace LightGBMNet.Interface
                         var splitGain = Str2DoubleArray(kvPairs["split_gain"], ' ');
                         var leafOutput = Str2DoubleArray(kvPairs["leaf_value"], ' ');
                         var decisionType = Str2UIntArray(kvPairs["decision_type"], ' ');
-                        var defaultValue = GetDefalutValue(threshold, decisionType);
+                        var defaultValue = GetDefaultValue(threshold, decisionType);
                         var categoricalSplitFeatures = new int[numLeaves - 1][];
                         var categoricalSplit = new bool[numLeaves - 1];
-                        if (categoricalFeatureBoudaries != null)
-                        {
-                            // Add offsets to split features.
-                            for (int node = 0; node < numLeaves - 1; ++node)
-                                splitFeature[node] = categoricalFeatureBoudaries[splitFeature[node]];
-                        }
+                      //if (categoricalFeatureBoudaries != null)
+                      //{
+                      //    // Add offsets to split features.
+                      //    for (int node = 0; node < numLeaves - 1; ++node)
+                      //        splitFeature[node] = categoricalFeatureBoudaries[splitFeature[node]];
+                      //}
 
                         if (numCat > 0)
                         {
@@ -596,21 +613,21 @@ namespace LightGBMNet.Interface
                                 }
                             }
                         }
-                        RegressionTree tree = RegressionTree.Create(numLeaves, splitFeature, splitGain,
+                        var tree = LightGBMNet.FastTree.RegressionTree.Create(numLeaves, splitFeature, splitGain,
                             threshold.Select(x => (float)(x)).ToArray(), defaultValue.Select(x => (float)(x)).ToArray(), leftChild, rightChild, leafOutput,
                             categoricalSplitFeatures, categoricalSplit);
                         res.AddTree(tree);
                     }
                     else
                     {
-                        RegressionTree tree = new RegressionTree(2);
+                        var tree = new LightGBMNet.FastTree.RegressionTree(2);
                         var leafOutput = Str2DoubleArray(kvPairs["leaf_value"], ' ');
                         if (leafOutput[0] != 0)
                         {
                             // Convert Constant tree to Two-leaf tree, avoid being filter by TLC.
                             var categoricalSplitFeatures = new int[1][];
                             var categoricalSplit = new bool[1];
-                            tree = RegressionTree.Create(2, new int[] { 0 }, new double[] { 0 },
+                            tree = LightGBMNet.FastTree.RegressionTree.Create(2, new int[] { 0 }, new double[] { 0 },
                                 new float[] { 0 }, new float[] { 0 }, new int[] { -1 }, new int[] { -2 }, new double[] { leafOutput[0], leafOutput[0] },
                                 categoricalSplitFeatures, categoricalSplit);
                         }
@@ -622,7 +639,7 @@ namespace LightGBMNet.Interface
             }
             return res;
         }
-        */
+ 
         #region IDisposable
         public void Dispose()
         {

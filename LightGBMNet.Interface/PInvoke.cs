@@ -37,6 +37,14 @@ namespace LightGBMNet.Interface
             Int64   = 3
         }
 
+        internal enum CApiPredictType : int
+        {
+            Normal     = 0,
+            RawScore   = 1,
+            LeafIndex  = 2,
+            Contrib    = 3
+        }
+
         //public enum FieldName : int
         //{
         //    Label,
@@ -104,7 +112,7 @@ namespace LightGBMNet.Interface
         public static extern int DatasetCreateFromSampledColumn(IntPtr sampleValuePerColumn,
             IntPtr sampleIndicesPerColumn,
             int numCol,
-            int[] sampleNonZeroCntPerColumn,
+            [In] int[] sampleNonZeroCntPerColumn,
             int numSampleRow,
             int numTotalRow,
             [MarshalAs(UnmanagedType.LPStr)]string parameters,
@@ -135,7 +143,7 @@ namespace LightGBMNet.Interface
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_DatasetPushRows", CallingConvention = CallingConvention.StdCall)]
         private static extern int DatasetPushRows(IntPtr dataset,
-            float[] data,
+            [In] float[] data,  // TODO: should pin array instead
             CApiDType dataType,
             int numRow,
             int numCol,
@@ -166,10 +174,10 @@ namespace LightGBMNet.Interface
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_DatasetPushRowsByCSR", CallingConvention = CallingConvention.StdCall)]
         private static extern int DatasetPushRowsByCsr(IntPtr dataset,
-            int[] indPtr,
+            [In] int[] indPtr,
             CApiDType indPtrType,
-            int[] indices,
-            float[] data,
+            [In] int[] indices,
+            [In] float[] data,
             CApiDType dataType,
             long nIndPtr,
             long numElem,
@@ -208,10 +216,10 @@ namespace LightGBMNet.Interface
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_DatasetCreateFromCSR", CallingConvention = CallingConvention.StdCall)]
         private static extern int DatasetCreateFromCsr(
-            int[] indPtr,
+            [In] int[] indPtr,
             CApiDType indPtrType,
-            int[] indices,
-            float[] data,
+            [In] int[] indices,
+            [In] float[] data,
             CApiDType dataType,
             long nIndPtr,
             long numElem,
@@ -221,9 +229,9 @@ namespace LightGBMNet.Interface
             ref IntPtr ret);
 
         public static int DatasetCreateFromCsr(
-            int[] indPtr,
-            int[] indices,
-            float[] data,
+            [In] int[] indPtr,
+            [In] int[] indices,
+            [In] float[] data,
             long nIndPtr,
             long numElem,
             long numCol,
@@ -254,10 +262,10 @@ namespace LightGBMNet.Interface
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_DatasetCreateFromCSC", CallingConvention = CallingConvention.StdCall)]
         private static extern int DatasetCreateFromCsc(
-            int[] colPtr,
+            [In] int[] colPtr,
             CApiDType colPtrType,
-            int[] indices,
-            float[] data,
+            [In] int[] indices,
+            [In] float[] data,
             CApiDType dataType,
             long nColPtr,
             long nElem,
@@ -267,9 +275,9 @@ namespace LightGBMNet.Interface
             ref IntPtr ret);
 
         public static int DatasetCreateFromCsc(
-            int[] colPtr,
-            int[] indices,
-            float[] data,
+            [In] int[] colPtr,
+            [In] int[] indices,
+            [In] float[] data,
             long nColPtr,
             long nElem,
             long numRow,
@@ -298,7 +306,7 @@ namespace LightGBMNet.Interface
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_DatasetCreateFromMat", CallingConvention = CallingConvention.StdCall)]
         private static extern int DatasetCreateFromMat(
-            float[] data,
+            [In] float[] data,
             CApiDType dataType,
             int nRow,
             int nCol,
@@ -308,7 +316,7 @@ namespace LightGBMNet.Interface
             ref IntPtr ret);
 
         public static int DatasetCreateFromMat(
-            float[] data,
+            [In] float[] data,
             int nRow,
             int nCol,
             bool isRowMajor,
@@ -327,9 +335,9 @@ namespace LightGBMNet.Interface
         /// create dataset from array of dense matrices
         /// </summary>
         /// <param name="nMat">Number of matrices</param>
-        /// <param name="data">pointer to the data space</param>
+        /// <param name="data">pointer to the data matrices</param>
         /// <param name="dataType">type of data pointer, can be C_API_DTYPE_FLOAT32 or C_API_DTYPE_FLOAT64</param>
-        /// <param name="nrow">number of rows</param>
+        /// <param name="nrow">number of rows in each matrix</param>
         /// <param name="ncol">number columns</param>
         /// <param name="isRowMajor">1 for row major, 0 for column major</param>
         /// <param name="parameters">additional parameters</param>
@@ -337,20 +345,21 @@ namespace LightGBMNet.Interface
         /// <param name="ret">created dataset</param>
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_DatasetCreateFromMats", CallingConvention = CallingConvention.StdCall)]
-        private static extern int DatasetCreateFromMats(
+        private static extern unsafe int DatasetCreateFromMats(
             int nMat,
-            float[][] data,
+            float** data,
             CApiDType dataType,
-            int[] nrow,
+            int* nrow,
             int ncol,
             int isRowMajor,
             [MarshalAs(UnmanagedType.LPStr)]string parameters,
             IntPtr reference,
             ref IntPtr ret);
 
-        public static int DatasetCreateFromMats(
-            float[][] data,
-            int[] nRow,
+        public static unsafe int DatasetCreateFromMats(
+            int nMat,
+            float** data,
+            int* nRow,
             int nCol,
             bool isRowMajor,
             string parameters,
@@ -358,11 +367,15 @@ namespace LightGBMNet.Interface
             ref IntPtr ret)
         {
             return DatasetCreateFromMats(
-                data.Length,
-                data, CApiDType.Float32,
-                nRow, nCol,
+                nMat,
+                data,
+                CApiDType.Float32,
+                nRow,
+                nCol,
                 (isRowMajor ? 1 : 0),
-                parameters, reference, ref ret);
+                parameters,
+                reference,
+                ref ret);
         }
 
         /// <summary>
@@ -377,7 +390,7 @@ namespace LightGBMNet.Interface
         [DllImport(DllName, EntryPoint = "LGBM_DatasetGetSubset", CallingConvention = CallingConvention.StdCall)]
         public static extern int DatasetGetSubset(
             IntPtr handle,
-            int[] usedRowIndices,
+            [In] int[] usedRowIndices,
             int numUsedRowIndices,
             [MarshalAs(UnmanagedType.LPStr)]string parameters,
             ref IntPtr ret);
@@ -749,7 +762,7 @@ namespace LightGBMNet.Interface
             IntPtr handle,
             string dataFilename,
             int dataHasHeader,//really boolean
-            int predictType,
+            CApiPredictType predictType,
             int numIteration,
             [MarshalAs(UnmanagedType.LPStr)] string parameter,
             ref string fileName);
@@ -759,7 +772,7 @@ namespace LightGBMNet.Interface
         /// </summary>
         /// <param name="handle">handle</param>
         /// <param name="numRow">number of rows</param>
-        /// <param name="predictType">predict_type</param>
+        /// <param name="predictType">predict type</param>
         /// <param name="numIteration">number of iteration for prediction, &lt;= 0 means no limit</param>
         /// <param name="outLen">length of prediction</param>
         /// <returns>0 when succeed, -1 when failure happens</returns>
@@ -767,7 +780,7 @@ namespace LightGBMNet.Interface
         public static extern int BoosterCalcNumPredict(
             IntPtr handle,
             int numRow,
-            int predictType,
+            CApiPredictType predictType,
             int numIteration,
             ref long outLen);
 
@@ -795,15 +808,15 @@ namespace LightGBMNet.Interface
         [DllImport(DllName, EntryPoint = "LGBM_BoosterPredictForCSR", CallingConvention = CallingConvention.StdCall)]
         private static extern unsafe int BoosterPredictForCsr(
             IntPtr handle,
-            int[] indPtr,
+            [In] int[] indPtr,
             CApiDType indptrType,
-            int[] indices,
-            float[] data,
+            [In] int[] indices,
+            [In] float[] data,
             CApiDType dataType,
             long nIndPtr,
             long nElem,
             long numCol,
-            int predictType,
+            CApiPredictType predictType,
             int numIteration,
             [MarshalAs(UnmanagedType.LPStr)] string parameter,
             ref long outLen,
@@ -811,13 +824,13 @@ namespace LightGBMNet.Interface
 
         public static unsafe int BoosterPredictForCsr(
             IntPtr handle,
-            int[] indPtr,
-            int[] indices,
-            float[] data,
+            [In] int[] indPtr,
+            [In] int[] indices,
+            [In] float[] data,
             long nIndPtr,
             long nElem,
             long numCol,
-            int predictType,
+            CApiPredictType predictType,
             int numIteration,
             [MarshalAs(UnmanagedType.LPStr)] string parameter,
             ref long outLen,
@@ -853,15 +866,15 @@ namespace LightGBMNet.Interface
         [DllImport(DllName, EntryPoint = "LGBM_BoosterPredictForCSC", CallingConvention = CallingConvention.StdCall)]
         private static extern unsafe int BoosterPredictForCsc(
             IntPtr handle,
-            int[] colPtr,
+            [In] int[] colPtr,
             CApiDType colPtrType,
-            int[] indices,
-            float[] data,
+            [In] int[] indices,
+            [In] float[] data,
             CApiDType dataType,
             long nColPtr,
             long nElem,
             long numRow,
-            int predictType,
+            CApiPredictType predictType,
             int numIteration,
             [MarshalAs(UnmanagedType.LPStr)] string parameter,
             ref long outLen,
@@ -869,13 +882,13 @@ namespace LightGBMNet.Interface
 
         public static unsafe int BoosterPredictForCsc(
             IntPtr handle,
-            int[] colPtr,
-            int[] indices,
-            float[] data,
+            [In] int[] colPtr,
+            [In] int[] indices,
+            [In] float[] data,
             long nColPtr,
             long nElem,
             long numRow,
-            int predictType,
+            CApiPredictType predictType,
             int numIteration,
             [MarshalAs(UnmanagedType.LPStr)] string parameter,
             ref long outLen,
@@ -908,12 +921,12 @@ namespace LightGBMNet.Interface
         [DllImport(DllName, EntryPoint = "LGBM_BoosterPredictForMat", CallingConvention = CallingConvention.StdCall)]
         private static extern unsafe int BoosterPredictForMat(
             IntPtr handle,
-            float[] data,
+            [In] float[] data,
             CApiDType dataType,
             int nRow,
             int nCol,
             int isRowMajor,
-            int predictType,
+            CApiPredictType predictType,
             int numIteration,
             [MarshalAs(UnmanagedType.LPStr)] string parameter,
             ref long outLen,
@@ -921,11 +934,11 @@ namespace LightGBMNet.Interface
 
         public static unsafe int BoosterPredictForMat(
             IntPtr handle,
-            float[] data,
+            [In] float[] data,
             int nRow,
             int nCol,
             bool isRowMajor,
-            int predictType,
+            CApiPredictType predictType,
             int numIteration,
             [MarshalAs(UnmanagedType.LPStr)] string parameter,
             ref long outLen,

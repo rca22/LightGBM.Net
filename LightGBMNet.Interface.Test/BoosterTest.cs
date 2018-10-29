@@ -121,7 +121,7 @@ namespace LightGBMNet.Interface.Test
                 {
                     var pms = new Parameters();
                     var metric = createRandomMetric(rand);
-                    if (metric != MetricType.Ndcg && metric != MetricType.Map)
+                    if (metric != MetricType.Ndcg && metric != MetricType.Map && (pms.Objective.NumClass > 1 || (metric != MetricType.MultiLogLoss && metric != MetricType.MultiError)))
                     {
                         pms.Metric.Metric = metric;
                         pms.Metric.IsProvideTrainingMetric = true;

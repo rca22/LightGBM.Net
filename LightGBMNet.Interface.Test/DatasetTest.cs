@@ -23,15 +23,17 @@ namespace LightGBMNet.Interface.Test
     {
         public static Dataset CreateRandom(System.Random rand)
         {
-            var numTotalRow = rand.Next(10, 50);
+            var numTotalRow = rand.Next(100, 500);
             var numSampleRow = rand.Next(5, numTotalRow);
 
-            var numColumns = rand.Next(5, 10);
+            var numColumns = rand.Next(1, 10);
             var columns = new double[numColumns][];
             for (int i = 0; i < numColumns; ++i)
             {
-                columns[i] = new double[numTotalRow];
-                for (int j = 0; j < columns[i].Length; ++j) columns[i][j] = rand.NextDouble();
+                var col = new double[numTotalRow];
+                for (int j = 0; j < col.Length; ++j)
+                    col[j] = rand.NextDouble();
+                columns[i] = col;
             }
 
             // select the sample indices

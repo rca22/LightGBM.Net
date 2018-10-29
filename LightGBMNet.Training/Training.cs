@@ -21,14 +21,17 @@ namespace LightGBMNet.Training
         /// </summary>
         public static Booster Train(Parameters parameters, 
                                     Dataset dtrain, 
-                                    Dataset dvalid = null, 
-                                    int numIteration = 100,
-                                    int earlyStoppingRound = 0)
+                                    Dataset dvalid = null
+                                  //int numIteration = 100,
+                                  //int earlyStoppingRound = 0
+                                    )
         {
             // create Booster.
             Booster bst = new Booster(parameters, dtrain, dvalid);
 
             // Disable early stopping if we don't have validation data.
+            var numIteration = parameters.Core.NumIterations;
+            var earlyStoppingRound = parameters.Learning.EarlyStoppingRound;
             if (dvalid == null && earlyStoppingRound > 0)
             {
                 earlyStoppingRound = 0;
