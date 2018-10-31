@@ -56,7 +56,7 @@ namespace LightGBMNet.Interface.Test
                     var pms = new Parameters();
                     pms.Metric.Metric = MetricType.MultiLogLoss;
                     pms.Objective.NumClass = rand.Next(2, 4);
-                    pms.Core.Objective = ObjectiveType.MultiClass;
+                    pms.Learning.Objective = ObjectiveType.MultiClass;
                     using (var booster = new Booster(pms, dataSet))
                     {
                         var numPredict = booster.GetNumPredict(0);
@@ -124,7 +124,7 @@ namespace LightGBMNet.Interface.Test
                     if (metric != MetricType.Ndcg && metric != MetricType.Map && (pms.Objective.NumClass > 1 || (metric != MetricType.MultiLogLoss && metric != MetricType.MultiError)))
                     {
                         pms.Metric.Metric = metric;
-                        pms.Metric.IsProvideTrainingMetric = true;
+                      //pms.Metric.IsProvideTrainingMetric = true;
                         using (var booster = new Booster(pms, dataSet))
                         {
                             var numEval = booster.EvalCounts;
@@ -151,7 +151,7 @@ namespace LightGBMNet.Interface.Test
                     var pms = new Parameters();
                     pms.Metric.Metric = MetricType.MultiLogLoss;
                     pms.Objective.NumClass = rand.Next(2, 4);
-                    pms.Core.Objective = ObjectiveType.MultiClass;
+                    pms.Learning.Objective = ObjectiveType.MultiClass;
                     using (var booster = new Booster(pms, dataSet))
                     {
                         Assert.Equal(pms.Objective.NumClass, booster.NumClasses);

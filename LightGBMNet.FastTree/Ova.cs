@@ -5,22 +5,13 @@
 using Float = System.Single;
 
 using System;
-using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace LightGBMNet.FastTree
 {
-    using TScalarPredictor = IPredictorProducing<Float>;
+    using TScalarPredictor = IPredictorWithFeatureWeights<Float>;
 
-    public sealed class OvaPredictor :
-        IPredictorProducing<VBuffer<Float>>
-        //PredictorBase<VBuffer<Float>>,
-        //IValueMapper,
-        //ICanSaveModel,
-        //ICanSaveInSourceCode,
-        //ICanSaveInTextFormat,
-        //ISingleCanSavePfa
+    public sealed class OvaPredictor : IPredictorWithFeatureWeights<VBuffer<Float>>
     {
 
         public TScalarPredictor[] Predictors { get; }
@@ -41,34 +32,19 @@ namespace LightGBMNet.FastTree
             Predictors = predictors;
         }
 
-        //private OvaPredictor(BinaryReader reader)
-        //{
-        //    int len = reader.ReadInt32();
-        //    if (len <= 0) throw new FormatException();
-        //    var predictors = new TScalarPredictor[len];
-        //    LoadPredictors(predictors, reader);
-        //    _impl = new ImplDist(predictors);
-        //}
-        //
-        //public static OvaPredictor Create(BinaryReader reader)
-        //{
-        //    return new OvaPredictor(reader);
-        //}
+        public FeatureToGainMap GetFeatureWeights(bool normalise = false, bool splits = false)
+        {
+            if (normalise)
+                throw new ArgumentException("Cannot normalise across multiple ensembles");
 
-        //private static void LoadPredictors<TPredictor>(TPredictor[] predictors, BinaryReader reader)
-        //    where TPredictor : class
-        //{
-        //    for (int i = 0; i < predictors.Length; i++)
-        //        ctx.LoadModel<TPredictor, SignatureLoadModel>(env, out predictors[i], string.Format(SubPredictorFmt, i));
-        //}
-        //
-        //protected void SaveCore(BinaryWriter writer)
-        //{
-        //    var preds = _impl.Predictors;
-        //    writer.Write(preds.Length);
-        //    for (int i = 0; i < preds.Length; i++)
-        //        preds[i].Save(writer);
-        //}
+            var gainMap = new FeatureToGainMap();
+            foreach (var p in Predictors)
+            {
+                foreach (var kv in p.GetFeatureWeights(normalise, splits))
+                    gainMap[kv.Key] += kv.Value;
+            }
+            return gainMap;            
+        }
 
         public void GetOutput(ref VBuffer<Float> src, ref VBuffer<Float> dst)
         {
@@ -124,23 +100,6 @@ namespace LightGBMNet.FastTree
             {
                 output[i] = (Float) (output[i] / wsum);
             }
-
-            //// Clamp to zero and normalize.
-            //Double sum = 0;
-            //for (int i = 0; i < count; i++)
-            //{
-            //    var value = output[i];
-            //    if (value >= 0)
-            //        sum += value;
-            //    else
-            //        output[i] = 0;
-            //}
-
-            //if (sum > 0)
-            //{
-            //    for (int i = 0; i < count; i++)
-            //        output[i] = (Float)(output[i] / sum);
-            //}
         }
 
     }

@@ -27,6 +27,7 @@ namespace LightGBMNet.Interface
             /// Leaf index
             /// </summary>
             LeafIndex = 2,
+
             /// <summary>
             /// Contribution
             /// </summary>
@@ -74,7 +75,7 @@ namespace LightGBMNet.Interface
             int numEval = this.EvalCounts;
             // At most one metric in ML.NET: to do remove this.
             if (numEval > 1)
-                throw new Exception("Expected at most one metric");
+                throw new Exception($"Expected at most one metric, got {numEval}");
             else if (numEval == 1)
                 _hasMetric = true;
         }
@@ -312,31 +313,6 @@ namespace LightGBMNet.Interface
             return ret;
         }
 
-        private static bool FindInBitset(UInt32[] bits, int start, int end, int pos)
-        {
-            int i1 = pos / 32;
-            if (start + i1 >= end)
-                return false;
-            int i2 = pos % 32;
-            return ((bits[start + i1] >> i2) & 1) > 0;
-        }
-
-        private static int[] GetCatThresholds(UInt32[] catThreshold, int lowerBound, int upperBound)
-        {
-            List<int> cats = new List<int>();
-            for (int j = lowerBound; j < upperBound; ++j)
-            {
-                // 32 bits.
-                for (int k = 0; k < 32; ++k)
-                {
-                    int cat = (j - lowerBound) * 32 + k;
-                    if (FindInBitset(catThreshold, lowerBound, upperBound, cat) && cat > 0)
-                        cats.Add(cat);
-                }
-            }
-            return cats.ToArray();
-        }
-
         public double GetLeafValue(int treeIdx, int leafIdx)
         {
             double val = 0.0;
@@ -545,9 +521,9 @@ namespace LightGBMNet.Interface
 
 
 
-        public LightGBMNet.FastTree.Ensemble GetModel() // int[] categoricalFeatureBoudaries)
+        public FastTree.Ensemble GetModel() // int[] categoricalFeatureBoudaries)
         {
-            LightGBMNet.FastTree.Ensemble res = new LightGBMNet.FastTree.Ensemble();
+            FastTree.Ensemble res = new FastTree.Ensemble();
             string modelString = GetModelString();
             string[] lines = modelString.Split('\n');
             int i = 0;
@@ -576,62 +552,54 @@ namespace LightGBMNet.Interface
                         var leafOutput = Str2DoubleArray(kvPairs["leaf_value"], ' ');
                         var decisionType = Str2UIntArray(kvPairs["decision_type"], ' ');
                         var defaultValue = GetDefaultValue(threshold, decisionType);
-                        var categoricalSplitFeatures = new int[numLeaves - 1][];
                         var categoricalSplit = new bool[numLeaves - 1];
-                      //if (categoricalFeatureBoudaries != null)
-                      //{
-                      //    // Add offsets to split features.
-                      //    for (int node = 0; node < numLeaves - 1; ++node)
-                      //        splitFeature[node] = categoricalFeatureBoudaries[splitFeature[node]];
-                      //}
 
-                        if (numCat > 0)
-                        {
-                            var catBoundaries = Str2IntArray(kvPairs["cat_boundaries"], ' ');
-                            var catThreshold = Str2UIntArray(kvPairs["cat_threshold"], ' ');
+                        var catBoundaries = Array.Empty<int>();
+                        var catThresholds = Array.Empty<uint>();
+                        if (numCat > 0) {
+                            catBoundaries = Str2IntArray(kvPairs["cat_boundaries"], ' ');
+                            catThresholds = Str2UIntArray(kvPairs["cat_threshold"], ' ');
                             for (int node = 0; node < numLeaves - 1; ++node)
                             {
-                                if (GetIsCategoricalSplit(decisionType[node]))
-                                {
-                                    int catIdx = (int)threshold[node];
-                                    var cats = GetCatThresholds(catThreshold, catBoundaries[catIdx], catBoundaries[catIdx + 1]);
-                                    categoricalSplitFeatures[node] = new int[cats.Length];
-                                    // Convert Cat thresholds to feature indices.
-                                    for (int j = 0; j < cats.Length; ++j)
-                                        categoricalSplitFeatures[node][j] = splitFeature[node] + cats[j] - 1;
-
-                                    splitFeature[node] = -1;
-                                    categoricalSplit[node] = true;
-                                    // Swap left and right child.
-                                    int t = leftChild[node];
-                                    leftChild[node] = rightChild[node];
-                                    rightChild[node] = t;
-                                }
-                                else
-                                {
-                                    categoricalSplit[node] = false;
-                                }
+                                categoricalSplit[node] = GetIsCategoricalSplit(decisionType[node]);
                             }
                         }
-                        var tree = LightGBMNet.FastTree.RegressionTree.Create(numLeaves, splitFeature, splitGain,
-                            threshold.Select(x => (float)(x)).ToArray(), defaultValue.Select(x => (float)(x)).ToArray(), leftChild, rightChild, leafOutput,
-                            categoricalSplitFeatures, categoricalSplit);
+
+                        var tree = FastTree.RegressionTree.Create(
+                                        numLeaves,
+                                        splitFeature,
+                                        splitGain,
+                                        threshold.Select(x => (float)x).ToArray(),
+                                        defaultValue.Select(x => (float)x).ToArray(),
+                                        leftChild,
+                                        rightChild,
+                                        leafOutput,
+                                        catBoundaries,
+                                        catThresholds,
+                                        categoricalSplit);
                         res.AddTree(tree);
                     }
                     else
                     {
-                        var tree = new LightGBMNet.FastTree.RegressionTree(2);
+                        //var tree = new FastTree.RegressionTree(2);
                         var leafOutput = Str2DoubleArray(kvPairs["leaf_value"], ' ');
                         if (leafOutput[0] != 0)
                         {
                             // Convert Constant tree to Two-leaf tree, avoid being filter by TLC.
-                            var categoricalSplitFeatures = new int[1][];
-                            var categoricalSplit = new bool[1];
-                            tree = LightGBMNet.FastTree.RegressionTree.Create(2, new int[] { 0 }, new double[] { 0 },
-                                new float[] { 0 }, new float[] { 0 }, new int[] { -1 }, new int[] { -2 }, new double[] { leafOutput[0], leafOutput[0] },
-                                categoricalSplitFeatures, categoricalSplit);
+                            var tree = FastTree.RegressionTree.Create(
+                                        2,
+                                        new int[] { 0 },
+                                        new double[] { 0 },
+                                        new float[] { 0 },
+                                        new float[] { 0 },
+                                        new int[] { -1 },
+                                        new int[] { -2 },
+                                        new double[] { leafOutput[0], leafOutput[0] },
+                                        new int[] { },
+                                        new uint[] { },
+                                        new bool[] { false });
+                            res.AddTree(tree);
                         }
-                        res.AddTree(tree);
                     }
                 }
                 else

@@ -4,8 +4,6 @@
 
 using System;
 using System.Diagnostics;
-//using System.Collections.Generic;
-//using Microsoft.ML.Runtime.Internal.Utilities;
 
 namespace LightGBMNet.FastTree
 {
@@ -120,6 +118,53 @@ namespace LightGBMNet.FastTree
             Indices = indices;
         }
 
+        #region FindIndexSorted
+        /// <summary>
+        /// Akin to <c>FindIndexSorted</c>, except stores the found index in the output
+        /// <c>index</c> parameter, and returns whether that index is a valid index
+        /// pointing to a value equal to the input parameter <c>value</c>.
+        /// </summary>
+        public static bool TryFindIndexSorted(int[] input, int min, int lim, int value, out int index)
+        {
+            index = FindIndexSorted(input, min, lim, value);
+            return index < lim && input[index] == value;
+        }
+
+        /// <summary>
+        /// Assumes input is sorted and finds value using BinarySearch.
+        /// If value is not found, returns the logical index of 'value' in the sorted list i.e index of the first element greater than value.
+        /// In case of duplicates it returns the index of the first one.
+        /// It guarantees that items before the returned index are &lt; value, while those at and after the returned index are &gt;= value.
+        /// </summary>
+        public static int FindIndexSorted(int[] input, int min, int lim, int value)
+        {
+            Debug.Assert(0 <= min & min <= lim & lim <= Size(input));
+
+            int minCur = min;
+            int limCur = lim;
+            while (minCur < limCur)
+            {
+                int mid = (int)(((uint)minCur + (uint)limCur) / 2);
+                Debug.Assert(minCur <= mid & mid < limCur);
+
+                if (input[mid] >= value)
+                    limCur = mid;
+                else
+                    minCur = mid + 1;
+
+                Debug.Assert(min <= minCur & minCur <= limCur & limCur <= lim);
+                Debug.Assert(minCur == min || input[minCur - 1] < value);
+                Debug.Assert(limCur == lim || input[limCur] >= value);
+            }
+            Debug.Assert(min <= minCur & minCur == limCur & limCur <= lim);
+            Debug.Assert(minCur == min || input[minCur - 1] < value);
+            Debug.Assert(limCur == lim || input[limCur] >= value);
+
+            return minCur;
+        }
+        #endregion
+
+#if unused
         /// <summary>
         /// Copy from this buffer to the given destination, forcing a dense representation.
         /// </summary>
@@ -169,51 +214,7 @@ namespace LightGBMNet.FastTree
             }
         }
 
-        #region FindIndexSorted
-        /// <summary>
-        /// Akin to <c>FindIndexSorted</c>, except stores the found index in the output
-        /// <c>index</c> parameter, and returns whether that index is a valid index
-        /// pointing to a value equal to the input parameter <c>value</c>.
-        /// </summary>
-        public static bool TryFindIndexSorted(int[] input, int min, int lim, int value, out int index)
-        {
-            index = FindIndexSorted(input, min, lim, value);
-            return index < lim && input[index] == value;
-        }
 
-        /// <summary>
-        /// Assumes input is sorted and finds value using BinarySearch.
-        /// If value is not found, returns the logical index of 'value' in the sorted list i.e index of the first element greater than value.
-        /// In case of duplicates it returns the index of the first one.
-        /// It guarantees that items before the returned index are &lt; value, while those at and after the returned index are &gt;= value.
-        /// </summary>
-        public static int FindIndexSorted(int[] input, int min, int lim, int value)
-        {
-            Debug.Assert(0 <= min & min <= lim & lim <= Size(input));
-
-            int minCur = min;
-            int limCur = lim;
-            while (minCur < limCur)
-            {
-                int mid = (int)(((uint)minCur + (uint)limCur) / 2);
-                Debug.Assert(minCur <= mid & mid < limCur);
-
-                if (input[mid] >= value)
-                    limCur = mid;
-                else
-                    minCur = mid + 1;
-
-                Debug.Assert(min <= minCur & minCur <= limCur & limCur <= lim);
-                Debug.Assert(minCur == min || input[minCur - 1] < value);
-                Debug.Assert(limCur == lim || input[limCur] >= value);
-            }
-            Debug.Assert(min <= minCur & minCur == limCur & limCur <= lim);
-            Debug.Assert(minCur == min || input[minCur - 1] < value);
-            Debug.Assert(limCur == lim || input[limCur] >= value);
-
-            return minCur;
-        }
-        #endregion
 
         /// <summary>
         /// Copy a range of values from this buffer to the given destination.
@@ -498,16 +499,6 @@ namespace LightGBMNet.FastTree
             src.CopyTo(ref dst);
         }
 
-      //public IEnumerable<KeyValuePair<int, T>> Items(bool all = false)
-      //{
-      //    return VBufferUtils.Items(Values, Indices, Length, Count, all);
-      //}
-      //
-      //public IEnumerable<T> DenseValues()
-      //{
-      //    return VBufferUtils.DenseValues(Values, Indices, Length, Count);
-      //}
-
         public void GetItemOrDefault(int slot, ref T dst)
         {
             CheckParam(0 <= slot && slot < Length, nameof(slot));
@@ -532,5 +523,6 @@ namespace LightGBMNet.FastTree
                 return Values[index];
             return default(T);
         }
+#endif
     }
 }

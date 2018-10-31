@@ -156,27 +156,9 @@ namespace LightGBMNet.Interface.Test
         }
 
         [Fact]
-        public void TestIOParametersDefault()
+        public void TestLearningParametersDefault()
         {
-            var x = new IOParameters();
-            var result = new Dictionary<string, string>();
-            x.AddParameters(result);
-            Assert.Empty(result);
-        }
-
-        [Fact]
-        public void TestCoreParametersDefault()
-        {
-            var x = new CoreParameters();
-            var result = new Dictionary<string, string>();
-            x.AddParameters(result);
-            Assert.Empty(result);
-        }
-        [Fact]
-
-        public void TestLearningControlParametersDefault()
-        {
-            var x = new LearningControlParameters();
+            var x = new LearningParameters();
             var result = new Dictionary<string, string>();
             x.AddParameters(result);
             Assert.Empty(result);

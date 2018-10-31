@@ -13,58 +13,79 @@ namespace LightGBMNet.Training
     {
         public override PredictionKind PredictionKind => PredictionKind.Regression;
 
-        internal RegressionPredictor(Ensemble trainedEnsemble, int featureCount)
-            : base(trainedEnsemble, featureCount)
+        internal RegressionPredictor(Ensemble trainedEnsemble, int featureCount, bool avgOutput)
+            : base(trainedEnsemble, featureCount, avgOutput)
         {
         }
 
-        private RegressionPredictor(BinaryReader reader) : base(reader)
+        public RegressionPredictor(BinaryReader reader) : base(reader)
         {
         }
 
-        protected override void SaveCore(BinaryWriter writer)
+        public void Save(BinaryWriter writer)
         {
             base.SaveCore(writer);
         }
-
-        //public static RegressionPredictor Create(IHostEnvironment env, ModelLoadContext ctx)
-        //{
-        //    Contracts.CheckValue(env, nameof(env));
-        //    env.CheckValue(ctx, nameof(ctx));
-        //    ctx.CheckAtModel(GetVersionInfo());
-        //    return new RegressionPredictor(env, ctx);
-        //}
     }
 
-    public sealed class RegressionTrainer : TrainerBase<float, RegressionPredictor>
+    public sealed class RegressionTrainer : TrainerBase<float>
     {
         public override PredictionKind PredictionKind => PredictionKind.Regression;
 
-        public RegressionTrainer(Parameters args) : base(args)
+        public RegressionTrainer(LearningParameters lp, ObjectiveParameters op, MetricParameters mp) : base(lp, op, mp)
         {
-            if (!(args.Core.Objective == ObjectiveType.Regression ||
-                  args.Core.Objective == ObjectiveType.RegressionL1 ||
-                  args.Core.Objective == ObjectiveType.Huber ||
-                  args.Core.Objective == ObjectiveType.Fair ||
-                  args.Core.Objective == ObjectiveType.Poisson ||
-                  args.Core.Objective == ObjectiveType.Quantile ||
-                  args.Core.Objective == ObjectiveType.Mape ||
-                  args.Core.Objective == ObjectiveType.Gamma ||
-                  args.Core.Objective == ObjectiveType.Tweedie
+            if (!(lp.Objective == ObjectiveType.Regression ||
+                  lp.Objective == ObjectiveType.RegressionL1 ||
+                  lp.Objective == ObjectiveType.Huber ||
+                  lp.Objective == ObjectiveType.Fair ||
+                  lp.Objective == ObjectiveType.Poisson ||
+                  lp.Objective == ObjectiveType.Quantile ||
+                  lp.Objective == ObjectiveType.Mape ||
+                  lp.Objective == ObjectiveType.Gamma ||
+                  lp.Objective == ObjectiveType.Tweedie
                   ))
                 throw new Exception("Require regression ObjectiveType");
 
-            if (args.Metric.Metric == MetricType.DefaultMetric)
-                args.Metric.Metric = MetricType.Mse;
+            if (mp.Metric == MetricType.DefaultMetric)
+                mp.Metric = MetricType.Mse;
         }
 
-        private protected override RegressionPredictor CreatePredictor()
+        private bool PositiveOutput()
         {
-            //Host.Check(TrainedEnsemble != null,
-            //    "The predictor cannot be created before training is complete");
-            return new RegressionPredictor(TrainedEnsemble, FeatureCount);
+            return Learning.Objective == ObjectiveType.Poisson ||
+                   Learning.Objective == ObjectiveType.Gamma ||
+                   Learning.Objective == ObjectiveType.Tweedie;
         }
 
+        private protected override IPredictorWithFeatureWeights<float> CreatePredictor()
+        {
+            var pred = new RegressionPredictor(TrainedEnsemble, FeatureCount, AverageOutput);
+            if (PositiveOutput())
+                return new CalibratedPredictor(pred, new ExponentialCalibrator());
+            else
+                return pred;
+        }
+
+        public static IPredictorWithFeatureWeights<float> Create(BinaryReader reader)
+        {
+            var isPositive = reader.ReadBoolean();
+            var pred = new RegressionPredictor(reader);
+            if (isPositive)
+                return new CalibratedPredictor(pred, new ExponentialCalibrator());
+            else
+                return pred;
+        }
+
+        public static void Save(IPredictorWithFeatureWeights<float> pred, BinaryWriter writer)
+        {
+            var cpred = pred as CalibratedPredictor;
+            var isPositive = (cpred != null);
+            writer.Write(isPositive);
+            if (isPositive)
+                (cpred.SubPredictor as RegressionPredictor).Save(writer);
+            else
+                (pred as RegressionPredictor).Save(writer);
+        }
     }
 
 }

@@ -30,7 +30,7 @@ namespace LightGBMNet.Training
             Booster bst = new Booster(parameters, dtrain, dvalid);
 
             // Disable early stopping if we don't have validation data.
-            var numIteration = parameters.Core.NumIterations;
+            var numIteration = parameters.Learning.NumIterations;
             var earlyStoppingRound = parameters.Learning.EarlyStoppingRound;
             if (dvalid == null && earlyStoppingRound > 0)
             {
@@ -46,7 +46,8 @@ namespace LightGBMNet.Training
             if (earlyStoppingRound > 0 && (metric == MetricType.Auc || metric == MetricType.Ndcg || metric == MetricType.Map))
                 factorToSmallerBetter = -1.0;
 
-            const int evalFreq = 50;
+            
+            const int evalFreq = 50; // FIXME  // parameters.Metric.MetricFreq (default is 1 tho?)
 
             double validError = double.NaN;
             double trainError = double.NaN;

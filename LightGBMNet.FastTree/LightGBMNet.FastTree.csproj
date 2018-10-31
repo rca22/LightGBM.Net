@@ -18,6 +18,11 @@
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Remove="BufferBuilder.cs" />
+    <Compile Remove="ToByteArrayExtensions.cs" />
+  </ItemGroup>
+
 <!--
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.ML.Core\Microsoft.ML.Core.csproj" />
