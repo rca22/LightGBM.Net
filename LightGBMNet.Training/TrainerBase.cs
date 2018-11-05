@@ -1,9 +1,9 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
-//using Float = System.Single;
 
 using System;
+using System.IO;
 using System.Diagnostics;
 using System.Linq;
 using LightGBMNet.Interface;
@@ -420,6 +420,8 @@ namespace LightGBMNet.Training
 
         private Booster Booster { get; set; } = null;
 
+        public string GetModelString() => Booster.GetModelString();
+
         private protected bool AverageOutput => (Learning.Boosting == BoostingType.RandomForest);
 
         private protected TrainerBase(LearningParameters lp, ObjectiveParameters op, MetricParameters mp)
@@ -439,22 +441,72 @@ namespace LightGBMNet.Training
             DisposeParallelTraining();
         }
 
-        public IPredictorWithFeatureWeights<TOutput> Train(Datasets data)
+        private Parameters GetParameters(Datasets data)
         {
-            Booster?.Dispose();
-            Booster = null;
-
-            var args = new Parameters {
+            var args = new Parameters
+            {
                 Common = data.Common,
                 Dataset = data.Dataset,
                 Metric = Metric,
                 Objective = Objective,
                 Learning = Learning
             };
+            return args;
+        }
+
+        /// <summary>
+        /// Generates files that can be used to run training with lightgbm.exe.
+        ///  - train.conf: contains training parameters
+        ///  - train.bin: training data
+        ///  - valid.bin: validation data (if provided)
+        /// Command line: lightgbm.exe config=train.conf
+        /// </summary>
+        /// <param name="data"></param>
+        public void ToCommandLineFiles(Datasets data, string destinationDir = @"c:\temp")
+        {
+            var pms = GetParameters(data);
+
+            var kvs = pms.ToDict();
+            kvs.Add("output_model", Path.Combine(destinationDir, "LightGBM_model.txt"));
+
+            var datafile = Path.Combine(destinationDir, "train.bin");
+            if (File.Exists(datafile)) File.Delete(datafile);
+            data.Training.SaveBinary(datafile);
+            kvs.Add("data", datafile);
+
+            if (data.Validation != null)
+            {
+                datafile = Path.Combine(destinationDir, "valid.bin");
+                if (File.Exists(datafile)) File.Delete(datafile);
+                data.Validation.SaveBinary(datafile);
+                kvs.Add("valid", datafile);
+            }
+
+            using (var file = new StreamWriter(Path.Combine(destinationDir, "train.conf")))
+            {
+                foreach (var kv in kvs)
+                    file.WriteLine($"{kv.Key} = {kv.Value}");
+            }
+
+        }
+
+        public IPredictorWithFeatureWeights<TOutput> Train(Datasets data)
+        {
+            Booster?.Dispose();
+            Booster = null;
+
+            var args = GetParameters(data);
             Booster = TrainCore(args, data.Training, data.Validation);
 
-            TrainedEnsemble = Booster.GetModel();
+            (var model, var argsout) = Booster.GetModel();
+            TrainedEnsemble = model;
             FeatureCount = data.Training.NumFeatures;
+
+            // check parameter strings
+            var strIn  = args.ToString();
+            var strOut = argsout.ToString();
+            if (strIn != strOut)
+                throw new Exception($"Parameters differ:\n{strIn}\n{strOut}");
 
             var predictor = CreatePredictor();            
             return predictor;
@@ -513,6 +565,76 @@ namespace LightGBMNet.Training
                 throw new Exception("LightGBM requires the number of classes to be specified in the parameters.");
 
             return WrappedLightGbmTraining.Train(args, dtrain, dvalid: dvalid);
+        }
+
+    }
+
+    public static class PredictorPersist
+    {
+        public static void Save(IPredictorWithFeatureWeights<double> pred, BinaryWriter writer)
+        {
+            if (pred is BinaryPredictor b)
+            {
+                writer.Write(0);
+                b.Save(writer);
+            }
+            else if (pred is RegressionPredictor r)
+            {
+                writer.Write(1);
+                r.Save(writer);
+            }
+            else if (pred is CalibratedPredictor c)
+            {
+                writer.Write(2);
+                PredictorPersist.Save(c.SubPredictor, writer);
+                CalibratorPersist.Save(c.Calibrator, writer);
+            }
+            else if (pred is RankingPredictor k)
+            {
+                writer.Write(3);
+                k.Save(writer);
+            }
+            else
+                throw new Exception("Unknown IPredictorWithFeatureWeights type");
+        }
+
+        public static IPredictorWithFeatureWeights<double> Load(BinaryReader reader)
+        {
+            var flag = reader.ReadInt32();
+            if (flag == 0)
+                return BinaryPredictor.Create(reader);
+            else if (flag == 1)
+                return new RegressionPredictor(reader);
+            else if (flag == 2)
+            {
+                var pred = PredictorPersist.Load(reader);
+                var calib = CalibratorPersist.Load(reader);
+                return new CalibratedPredictor(pred, calib);
+            }
+            else if (flag == 3)
+                return RankingPredictor.Create(reader);
+            else
+                throw new FormatException("Invalid IPredictorWithFeatureWeights flag");
+        }
+
+        public static void Save(IPredictorWithFeatureWeights<VBuffer<double>> input, BinaryWriter writer)
+        {
+            var pred = input as OvaPredictor;
+            if (pred == null) throw new Exception("Unexpected predictor type");
+            writer.Write(pred.IsSoftMax);
+            writer.Write(pred.Predictors.Length);
+            foreach (var p in pred.Predictors)
+                PredictorPersist.Save(p, writer);
+        }
+
+        public static IPredictorWithFeatureWeights<VBuffer<double>> LoadMulti(BinaryReader reader)
+        {
+            var isSoftMax = reader.ReadBoolean();
+            var len = reader.ReadInt32();
+            var predictors = new IPredictorWithFeatureWeights<double>[len];
+            for (var i = 0; i < len; i++)
+                predictors[i] = PredictorPersist.Load(reader);
+            return OvaPredictor.Create(isSoftMax, predictors);
         }
 
     }

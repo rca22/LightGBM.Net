@@ -34,7 +34,7 @@ namespace LightGBMNet.Training
         }
     }
 
-    public sealed class RankingTrainer : TrainerBase<float>
+    public sealed class RankingTrainer : TrainerBase<double>
     {
         public override PredictionKind PredictionKind => PredictionKind.Ranking;
 
@@ -46,19 +46,9 @@ namespace LightGBMNet.Training
                 mp.Metric = MetricType.Ndcg;
         }
 
-        private protected override IPredictorWithFeatureWeights<float> CreatePredictor()
+        private protected override IPredictorWithFeatureWeights<double> CreatePredictor()
         {
             return new RankingPredictor(TrainedEnsemble, FeatureCount, AverageOutput);
-        }
-
-        public static RankingPredictor Create(BinaryReader reader)
-        {
-            return RankingPredictor.Create(reader);
-        }
-
-        public static void Save(IPredictorWithFeatureWeights<float> pred, BinaryWriter writer)
-        {
-            (pred as RankingPredictor).Save(writer);
         }
 
     }

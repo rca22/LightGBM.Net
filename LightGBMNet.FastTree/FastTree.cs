@@ -2,10 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using Float = System.Single;
-
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -53,8 +50,7 @@ namespace LightGBMNet.FastTree
     {
     }
 
-    public abstract class FastTreePredictionWrapper :
-        IPredictorWithFeatureWeights<Float>
+    public abstract class FastTreePredictionWrapper : IPredictorWithFeatureWeights<double>
     {
         public abstract PredictionKind PredictionKind { get; }
 
@@ -120,12 +116,12 @@ namespace LightGBMNet.FastTree
             return ifeatMax;
         }
 
-        public virtual void GetOutput(ref VBuffer<Float> src, ref Float dst)
+        public virtual void GetOutput(ref VBuffer<float> src, ref double dst)
         {
             if(!(src.Length > MaxSplitFeatIdx))
                 throw new ArgumentException("Feature vector too small");
 
-            dst = (Float)TrainedEnsemble.GetOutput(ref src);
+            dst = TrainedEnsemble.GetOutput(ref src);
 
             if (AverageOutput)
                 dst /= TrainedEnsemble.NumTrees;

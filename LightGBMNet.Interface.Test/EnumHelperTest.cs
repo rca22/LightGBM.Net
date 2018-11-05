@@ -10,17 +10,6 @@ namespace LightGBMNet.Interface.Test
 {
     public class EnumHelperTest
     {
-        [Fact]
-        public void TestTaskType()
-        {
-            var vals = (TaskType[])Enum.GetValues(typeof(TaskType));
-            foreach (var v in vals)
-            {
-                var s = EnumHelper.GetTaskString(v);
-                var vBar = EnumHelper.ParseTask(s);
-                Assert.Equal(v, vBar);
-            }
-        }
 
         [Fact]
         public void TestObjectiveType()

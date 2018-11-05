@@ -28,7 +28,7 @@ namespace LightGBMNet.Training
         }
     }
 
-    public sealed class RegressionTrainer : TrainerBase<float>
+    public sealed class RegressionTrainer : TrainerBase<double>
     {
         public override PredictionKind PredictionKind => PredictionKind.Regression;
 
@@ -57,34 +57,13 @@ namespace LightGBMNet.Training
                    Learning.Objective == ObjectiveType.Tweedie;
         }
 
-        private protected override IPredictorWithFeatureWeights<float> CreatePredictor()
+        private protected override IPredictorWithFeatureWeights<double> CreatePredictor()
         {
             var pred = new RegressionPredictor(TrainedEnsemble, FeatureCount, AverageOutput);
             if (PositiveOutput())
-                return new CalibratedPredictor(pred, new ExponentialCalibrator());
+                return new CalibratedPredictor(pred, ExponentialCalibrator.Instance);
             else
                 return pred;
-        }
-
-        public static IPredictorWithFeatureWeights<float> Create(BinaryReader reader)
-        {
-            var isPositive = reader.ReadBoolean();
-            var pred = new RegressionPredictor(reader);
-            if (isPositive)
-                return new CalibratedPredictor(pred, new ExponentialCalibrator());
-            else
-                return pred;
-        }
-
-        public static void Save(IPredictorWithFeatureWeights<float> pred, BinaryWriter writer)
-        {
-            var cpred = pred as CalibratedPredictor;
-            var isPositive = (cpred != null);
-            writer.Write(isPositive);
-            if (isPositive)
-                (cpred.SubPredictor as RegressionPredictor).Save(writer);
-            else
-                (pred as RegressionPredictor).Save(writer);
         }
     }
 

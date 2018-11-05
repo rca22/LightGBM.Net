@@ -9,7 +9,7 @@ using LightGBMNet.FastTree;
 
 namespace LightGBMNet.Training
 {
-    public sealed class MulticlassTrainer : TrainerBase<VBuffer<float>>
+    public sealed class MulticlassTrainer : TrainerBase<VBuffer<double>>
     {
         public override PredictionKind PredictionKind => PredictionKind.MultiClassClassification;
 
@@ -43,50 +43,19 @@ namespace LightGBMNet.Training
             return new BinaryPredictor(GetBinaryEnsemble(classID), FeatureCount, AverageOutput);
         }
 
-        private protected override IPredictorWithFeatureWeights<VBuffer<float>> CreatePredictor()
+        private protected override IPredictorWithFeatureWeights<VBuffer<double>> CreatePredictor()
         {
             var numClass = Objective.NumClass;
             if (TrainedEnsemble.NumTrees % numClass != 0)
                 throw new Exception("Number of trees should be a multiple of number of classes.");
 
             var isSoftMax = (Learning.Objective == ObjectiveType.MultiClass);
-            IPredictorWithFeatureWeights<float>[] predictors = new IPredictorWithFeatureWeights<float>[numClass];
+            IPredictorWithFeatureWeights<double>[] predictors = new IPredictorWithFeatureWeights<double>[numClass];
             var cali = isSoftMax ? null : new PlattCalibrator(-Objective.Sigmoid);
             for (int i = 0; i < numClass; ++i)
             {
-                var pred = CreateBinaryPredictor(i) as IPredictorWithFeatureWeights<float>;
+                var pred = CreateBinaryPredictor(i) as IPredictorWithFeatureWeights<double>;
                 predictors[i] = isSoftMax ? pred : new CalibratedPredictor(pred, cali);
-            }
-            return OvaPredictor.Create(isSoftMax, predictors);
-        }
-
-        public static void Save(IPredictorWithFeatureWeights<VBuffer<float>> input, BinaryWriter writer)
-        {
-            var pred = input as OvaPredictor;
-            if (pred == null) throw new Exception("Unexpected predictor type");
-            writer.Write(pred.IsSoftMax);
-            writer.Write(pred.Predictors.Length);
-            foreach(var p in pred.Predictors) {
-                if (pred.IsSoftMax)
-                    (p as BinaryPredictor).Save(writer);
-                else
-                {
-                    var q = p as CalibratedPredictor;
-                    (q.SubPredictor as BinaryPredictor).Save(writer);
-                    (q.Calibrator as PlattCalibrator).Save(writer);
-                }
-            }
-        }
-
-        public static OvaPredictor Create(BinaryReader reader)
-        {
-            var isSoftMax = reader.ReadBoolean();
-            var len = reader.ReadInt32();
-            var predictors = new IPredictorWithFeatureWeights<float>[len];
-            for (var i = 0; i < len; i++)
-            {
-                var pred = BinaryPredictor.Create(reader) as IPredictorWithFeatureWeights<float>;
-                predictors[i] = isSoftMax ? pred : new CalibratedPredictor(pred, PlattCalibrator.Create(reader));
             }
             return OvaPredictor.Create(isSoftMax, predictors);
         }

@@ -2,8 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using Float = System.Single;
-
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,7 +12,7 @@ namespace LightGBMNet.FastTree
 {
     public class RegressionTree
     {
-        private Float[] DefaultValueForMissing { get; }
+        private double[] DefaultValueForMissing { get; }
 
         public int[] LteChild { get; }
         public int[] GtChild { get; }
@@ -32,7 +30,7 @@ namespace LightGBMNet.FastTree
         // These are the thresholds based on the binned values of the raw features.
         //public UInt32[] Thresholds { get; }
         // These are the thresholds based on the raw feature values. Populated after training.
-        public Float[] RawThresholds { get; }
+        public double[] RawThresholds { get; }
         public double[] SplitGains { get; }
         public double[] LeafValues { get; }
 
@@ -56,7 +54,7 @@ namespace LightGBMNet.FastTree
         /// Create a Regression Tree object from raw tree contents.
         /// </summary>
         public static RegressionTree Create(int numLeaves, int[] splitFeatures, Double[] splitGain,
-            Float[] rawThresholds, Float[] defaultValueForMissing, int[] lteChild, int[] gtChild, Double[] leafValues,
+            double[] rawThresholds, double[] defaultValueForMissing, int[] lteChild, int[] gtChild, Double[] leafValues,
             int[] categoricalBoundaries, uint[] categoricalThresholds, bool[] categoricalSplit)
         {
             if (numLeaves <= 1)
@@ -86,7 +84,7 @@ namespace LightGBMNet.FastTree
         }
 
         internal RegressionTree(int[] splitFeatures, Double[] splitGains,
-            Float[] rawThresholds, Float[] defaultValueForMissing, int[] lteChild, int[] gtChild, Double[] leafValues,
+            double[] rawThresholds, double[] defaultValueForMissing, int[] lteChild, int[] gtChild, Double[] leafValues,
             int[] categoricalBoundaries, uint[] categoricalThresholds, bool[] categoricalSplit)
         {
             CheckParam(Size(splitFeatures) > 0, nameof(splitFeatures), "Number of split features must be positive");
@@ -161,19 +159,6 @@ namespace LightGBMNet.FastTree
                 writer.Write(val);
         }
 
-        public static void WriteFloatArray(BinaryWriter writer, Float[] values)
-        {
-            if (values == null)
-            {
-                writer.Write(0);
-                return;
-            }
-
-            writer.Write(values.Length);
-            foreach (var val in values)
-                writer.Write(val);
-        }
-
         public static void WriteDoubleArray(BinaryWriter writer, Double[] values)
         {
             if (values == null)
@@ -235,21 +220,10 @@ namespace LightGBMNet.FastTree
                 values[i] = reader.ReadDouble();
             return values;
         }
-
-        private static Float[] ReadFloatArray(BinaryReader reader)
-        {
-            int size = reader.ReadInt32();
-            if (size < 0) throw new FormatException();
-            if (size == 0) return null;
-            var values = new Float[size];
-            for (int i = 0; i < size; i++)
-                values[i] = reader.ReadSingle();
-            return values;
-        }
         #endregion
 
         #region Read/write RegressionTree to binary stream
-        internal RegressionTree(BinaryReader reader) //: this()
+        internal RegressionTree(BinaryReader reader)
         {
 
             NumLeaves = reader.ReadInt32();
@@ -261,9 +235,9 @@ namespace LightGBMNet.FastTree
             CategoricalThresholds = ReadUIntArray(reader);
             CategoricalSplit = ReadBooleanArray(reader);
 
-            RawThresholds = ReadFloatArray(reader);
+            RawThresholds = ReadDoubleArray(reader);
 
-            DefaultValueForMissing = ReadFloatArray(reader);
+            DefaultValueForMissing = ReadDoubleArray(reader);
 
             LeafValues = ReadDoubleArray(reader);
             SplitGains = ReadDoubleArray(reader);
@@ -287,7 +261,7 @@ namespace LightGBMNet.FastTree
             }
         }
 
-        public void Save(BinaryWriter writer) // , TreeType code)
+        public void Save(BinaryWriter writer)
         {
 #if DEBUG
             // This must be compiled only in the debug case, since you can't
@@ -307,8 +281,8 @@ namespace LightGBMNet.FastTree
             WriteUIntArray(writer, CategoricalThresholds);
             WriteBooleanArray(writer, CategoricalSplit);
 
-            WriteFloatArray(writer, RawThresholds);
-            WriteFloatArray(writer, DefaultValueForMissing);
+            WriteDoubleArray(writer, RawThresholds);
+            WriteDoubleArray(writer, DefaultValueForMissing);
             WriteDoubleArray(writer, LeafValues);
 
             WriteDoubleArray(writer, SplitGains);
@@ -356,7 +330,7 @@ namespace LightGBMNet.FastTree
         /// </summary>
         public int NumNodes => NumLeaves - 1;
 
-        public virtual double GetOutput(ref VBuffer<Float> feat)
+        public virtual double GetOutput(ref VBuffer<float> feat)
         {
             if (LteChild[0] == 0)
                 return 0;
@@ -377,7 +351,7 @@ namespace LightGBMNet.FastTree
         // Returns index to a leaf an instance/document belongs to.
         // Input are the raw feature values in dense format.
         // For empty tree returns 0.
-        public int GetLeaf(ref VBuffer<Float> feat)
+        public int GetLeaf(ref VBuffer<float> feat)
         {
             // REVIEW: This really should validate feat.Length!
             if (feat.IsDense)
@@ -385,7 +359,7 @@ namespace LightGBMNet.FastTree
             return GetLeafCore(feat.Count, feat.Indices, feat.Values);
         }
 
-        private Float GetFeatureValue(Float x, int node)
+        private double GetFeatureValue(double x, int node)
         {
             // Not need to convert missing vaules.
             if (DefaultValueForMissing == null)
@@ -410,10 +384,9 @@ namespace LightGBMNet.FastTree
             return ((bits[start + i1] >> i2) & 1) > 0;
         }
 
-        private int GetLeafCore(Float[] nonBinnedInstance, List<int> path = null, int root = 0)
+        private int GetLeafCore(float[] nonBinnedInstance, int root = 0)
         {
             Debug.Assert(nonBinnedInstance != null);
-            Debug.Assert(path == null || path.Count == 0);
             Debug.Assert(root >= 0);
 
             // Check for an empty tree.
@@ -421,74 +394,41 @@ namespace LightGBMNet.FastTree
                 return 0;
 
             int node = root;
-            if (path == null)
+            while (node >= 0)
             {
-                while (node >= 0)
+                double fv = nonBinnedInstance[SplitFeatures[node]];
+                if (CategoricalSplit[node])
                 {
-                    Float fv = GetFeatureValue(nonBinnedInstance[SplitFeatures[node]], node);
-                    if (CategoricalSplit[node])
-                    {
-                        Debug.Assert(CategoricalThresholds != null);
-                        Debug.Assert(CategoricalBoundaries != null);
+                    Debug.Assert(CategoricalThresholds != null);
+                    Debug.Assert(CategoricalBoundaries != null);
 
-                        int int_fval = (int)fv;
-                        int cat_idx = (int)RawThresholds[node];
+                    int int_fval = (int)fv;
+                    int cat_idx = (int)RawThresholds[node];
 
-                        if (int_fval >= 0 && FindInBitset(CategoricalThresholds, CategoricalBoundaries[cat_idx],
-                             CategoricalBoundaries[cat_idx + 1] - CategoricalBoundaries[cat_idx], int_fval))
-                            node = LteChild[node];
-                        else
-                            node = GtChild[node];
-                    }
+                    if (int_fval >= 0 && !Double.IsNaN(fv) && FindInBitset(CategoricalThresholds, CategoricalBoundaries[cat_idx],
+                         CategoricalBoundaries[cat_idx + 1] - CategoricalBoundaries[cat_idx], int_fval))
+                        node = LteChild[node];
                     else
-                    {
-                        if (fv <= RawThresholds[node])
-                            node = LteChild[node];
-                        else
-                            node = GtChild[node];
-                    }
+                        node = GtChild[node];
+                }
+                else
+                {
+                    fv = GetFeatureValue(fv, node);
+                    if (fv <= RawThresholds[node])
+                        node = LteChild[node];
+                    else
+                        node = GtChild[node];
                 }
             }
-            else
-            {
-                while (node >= 0)
-                {
-                    path.Add(node);
 
-                    Float fv = GetFeatureValue(nonBinnedInstance[SplitFeatures[node]], node);
-
-                    if (CategoricalSplit[node])
-                    {
-                        Debug.Assert(CategoricalThresholds != null);
-                        Debug.Assert(CategoricalBoundaries != null);
-
-                        int int_fval = (int)fv;
-                        int cat_idx = (int)RawThresholds[node];
-
-                        if (int_fval >= 0 && FindInBitset(CategoricalThresholds, CategoricalBoundaries[cat_idx],
-                             CategoricalBoundaries[cat_idx + 1] - CategoricalBoundaries[cat_idx], int_fval))
-                            node = LteChild[node];
-                        else
-                            node = GtChild[node];
-                    }
-                    else
-                    {
-                        if (fv <= RawThresholds[node])
-                            node = LteChild[node];
-                        else
-                            node = GtChild[node];
-                    }
-                }
-            }
             return ~node;
         }
 
-        private int GetLeafCore(int count, int[] featIndices, Float[] featValues, List<int> path = null, int root = 0)
+        private int GetLeafCore(int count, int[] featIndices, float[] featValues, int root = 0)
         {
             Debug.Assert(count >= 0);
             Debug.Assert(Size(featIndices) >= count);
             Debug.Assert(Size(featValues) >= count);
-            Debug.Assert(path == null || path.Count == 0);
             Debug.Assert(root >= 0);
 
             // check for an empty tree
@@ -499,15 +439,11 @@ namespace LightGBMNet.FastTree
 
             while (node >= 0)
             {
-                if (path != null)
-                    path.Add(node);
-
-                Float val = 0;
+                double val = 0;
                 int ifeat = SplitFeatures[node];
                 int ii = VBuffer<int>.FindIndexSorted(featIndices, 0, count, ifeat);
                 if (ii < count && featIndices[ii] == ifeat)
                     val = featValues[ii];
-                val = GetFeatureValue(val, node);
 
                 if (CategoricalSplit[node])
                 {
@@ -517,7 +453,7 @@ namespace LightGBMNet.FastTree
                     int int_fval = (int)val;
                     int cat_idx = (int)RawThresholds[node];
 
-                    if (int_fval >= 0 && FindInBitset(CategoricalThresholds, CategoricalBoundaries[cat_idx],
+                    if (int_fval >= 0 && !Double.IsNaN(val) && FindInBitset(CategoricalThresholds, CategoricalBoundaries[cat_idx],
                          CategoricalBoundaries[cat_idx + 1] - CategoricalBoundaries[cat_idx], int_fval))
                         node = LteChild[node];
                     else
@@ -525,6 +461,7 @@ namespace LightGBMNet.FastTree
                 }
                 else
                 {
+                    val = GetFeatureValue(val, node);
                     if (val <= RawThresholds[node])
                         node = LteChild[node];
                     else

@@ -33,7 +33,7 @@ namespace LightGBMNet.Training
         }
     }
 
-    public sealed class BinaryTrainer : TrainerBase<float>
+    public sealed class BinaryTrainer : TrainerBase<double>
     {
         public override PredictionKind PredictionKind => PredictionKind.BinaryClassification;
 
@@ -45,28 +45,13 @@ namespace LightGBMNet.Training
                 mp.Metric = MetricType.BinaryLogLoss;
         }
 
-        private protected override IPredictorWithFeatureWeights<float> CreatePredictor()
+        private protected override IPredictorWithFeatureWeights<double> CreatePredictor()
         {
             var pred = new BinaryPredictor(TrainedEnsemble, FeatureCount, AverageOutput);
             var cali = new PlattCalibrator(-Objective.Sigmoid);
             return new CalibratedPredictor(pred, cali);
         }
-
-        public static CalibratedPredictor Create(BinaryReader reader)
-        {
-            var pred = BinaryPredictor.Create(reader);
-            var cali = PlattCalibrator.Create(reader);
-            return new CalibratedPredictor(pred, cali);
-        }
-
-        public static void Save(IPredictorProducing<float> p, BinaryWriter writer)
-        {
-            var pred = p as CalibratedPredictor;
-            if (pred == null) throw new Exception("Unexpected predictor type");
-            (pred.SubPredictor as BinaryPredictor).Save(writer);
-            (pred.Calibrator as PlattCalibrator).Save(writer);
-        }
-
+        
     }
 
 }

@@ -2,8 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using Float = System.Single;
-
 using System;
 using System.IO;
 
@@ -15,24 +13,24 @@ namespace LightGBMNet.FastTree
     public interface ICalibrator
     {
         /// <summary> Given a classifier output, produce the probability </summary>		
-        Float PredictProbability(Float output);
+        double PredictProbability(double output);
     }
 
-    public class CalibratedPredictor : IPredictorWithFeatureWeights<Float>
+    public class CalibratedPredictor : IPredictorWithFeatureWeights<double>
     {
-        public IPredictorWithFeatureWeights<Float> SubPredictor { get; }
+        public IPredictorWithFeatureWeights<double> SubPredictor { get; }
         public ICalibrator Calibrator { get; }
         public PredictionKind PredictionKind => SubPredictor.PredictionKind;
 
-        public CalibratedPredictor(IPredictorWithFeatureWeights<Float> predictor, ICalibrator calibrator)
+        public CalibratedPredictor(IPredictorWithFeatureWeights<double> predictor, ICalibrator calibrator)
         {
             SubPredictor = predictor;
             Calibrator = calibrator;
         }
 
-        public void GetOutput(ref VBuffer<float> features, ref float prob)
+        public void GetOutput(ref VBuffer<float> features, ref double prob)
         {
-            float score = 0;
+            double score = 0;
             SubPredictor.GetOutput(ref features, ref score);
             prob = Calibrator.PredictProbability(score);
         }
@@ -42,61 +40,93 @@ namespace LightGBMNet.FastTree
             return SubPredictor.GetFeatureWeights(normalise, splits);
         }
     }
-
-
+    
     public sealed class PlattCalibrator : ICalibrator
     {
-        public Double ParamA { get; }
+        public double ParamA { get; }
 
-        public PlattCalibrator(Double paramA)
+        public PlattCalibrator(double paramA)
         {
             ParamA = paramA;
         }
 
-        private PlattCalibrator(BinaryReader reader)
+        public static PlattCalibrator Load(BinaryReader reader)
         {
-            ParamA = reader.ReadDouble();
-        }
-
-        public static PlattCalibrator Create(BinaryReader reader)
-        {
-            return new PlattCalibrator(reader);
+            return new PlattCalibrator(reader.ReadDouble());
         }
 
         public void Save(BinaryWriter writer)
         {
-            SaveCore(writer);
-        }
-
-        private void SaveCore(BinaryWriter writer)
-        {
             writer.Write(ParamA);
         }
 
-        public Float PredictProbability(Float output)
+        public double PredictProbability(double output)
         {
-            if (Float.IsNaN(output))
+            if (double.IsNaN(output))
                 return output;
             return PredictProbability(output, ParamA);
         }
 
-        public static Float PredictProbability(Float output, Double a)
+        public static double PredictProbability(double output, double a)
         {
-            return (Float)(1 / (1 + Math.Exp(a * output)));
+            return 1.0 / (1.0 + Math.Exp(a * output));
         }
     }
-
+    
     public sealed class ExponentialCalibrator : ICalibrator
     {
-        public ExponentialCalibrator()
+        private static readonly ExponentialCalibrator instance = new ExponentialCalibrator();
+
+        private ExponentialCalibrator()
+        {
+        }
+        static ExponentialCalibrator()
         {
         }
 
-        public Float PredictProbability(Float output)
+        public static ExponentialCalibrator Instance
         {
-            if (Float.IsNaN(output))
+            get
+            {
+                return instance;
+            }
+        }
+
+        public double PredictProbability(double output)
+        {
+            if (double.IsNaN(output))
                 return output;
-            return (Float)Math.Exp(output);
+            return Math.Exp(output);
         }
     }
+
+    public static class CalibratorPersist
+    {
+        public static void Save(ICalibrator calibrator, BinaryWriter writer)
+        {
+            if (calibrator is PlattCalibrator platt)
+            {
+                writer.Write(0);
+                platt.Save(writer);
+            }
+            else if (calibrator is ExponentialCalibrator e)
+            {
+                writer.Write(1);
+            }
+            else
+                throw new Exception("Unknown ICalibrator type");
+        }
+
+        public static ICalibrator Load(BinaryReader reader)
+        {
+            var flag = reader.ReadInt32();
+            if (flag == 0)
+                return PlattCalibrator.Load(reader);
+            else if (flag == 1)
+                return ExponentialCalibrator.Instance;
+            else
+                throw new FormatException("Invalid ICalibrator flag");
+        }
+    }
+
 }

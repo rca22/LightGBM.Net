@@ -2,16 +2,14 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using Float = System.Single;
-
 using System;
 using System.Threading.Tasks;
 
 namespace LightGBMNet.FastTree
 {
-    using TScalarPredictor = IPredictorWithFeatureWeights<Float>;
+    using TScalarPredictor = IPredictorWithFeatureWeights<double>;
 
-    public sealed class OvaPredictor : IPredictorWithFeatureWeights<VBuffer<Float>>
+    public sealed class OvaPredictor : IPredictorWithFeatureWeights<VBuffer<double>>
     {
 
         public TScalarPredictor[] Predictors { get; }
@@ -46,27 +44,32 @@ namespace LightGBMNet.FastTree
             return gainMap;            
         }
 
-        public void GetOutput(ref VBuffer<Float> src, ref VBuffer<Float> dst)
+        public void GetOutput(ref VBuffer<float> src, ref VBuffer<double> dst)
         {
             var values = dst.Values;
             if ((values?.Length ?? 0) < Predictors.Length)
-                values = new Float[Predictors.Length];
+                values = new double[Predictors.Length];
 
+#if DEBUG
+            for(var i=0; i < Predictors.Length; i++)
+                Predictors[i].GetOutput(ref src, ref values[i]);
+#else
             var tmp = src;
             Parallel.For(0, Predictors.Length, i => Predictors[i].GetOutput(ref tmp, ref values[i]));
+#endif
 
             if (IsSoftMax)
                 Softmax(values, Predictors.Length);
             else
                 Normalize(values, Predictors.Length);
 
-            dst = new VBuffer<Float>(Predictors.Length, values, dst.Indices);
+            dst = new VBuffer<double>(Predictors.Length, values, dst.Indices);
         }
 
-        private static void Normalize(Float[] output, int count)
+        private static void Normalize(double[] output, int count)
         {
             // Clamp to zero and normalize.
-            Double sum = 0;
+            double sum = 0;
             for (int i = 0; i < count; i++)
             {
                 var value = output[i];
@@ -79,11 +82,11 @@ namespace LightGBMNet.FastTree
             if (sum > 0)
             {
                 for (int i = 0; i < count; i++)
-                    output[i] = (Float)(output[i] / sum);
+                    output[i] = (output[i] / sum);
             }
         }
 
-        private static void Softmax(Float[] output, int count)
+        private static void Softmax(double[] output, int count)
         {
             double wmax = output[0];
             for (int i = 1; i < count; ++i)
@@ -93,12 +96,12 @@ namespace LightGBMNet.FastTree
             double wsum = 0.0f;
             for (int i = 0; i < count; ++i)
             {
-                output[i] = (Float) Math.Exp(output[i] - wmax);
+                output[i] = Math.Exp(output[i] - wmax);
                 wsum += output[i];
             }
             for (int i = 0; i < count; ++i)
             {
-                output[i] = (Float) (output[i] / wsum);
+                output[i] = (output[i] / wsum);
             }
         }
 

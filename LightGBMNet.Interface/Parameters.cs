@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Reflection;
 
@@ -9,13 +8,13 @@ using System.Reflection;
 
 namespace LightGBMNet.Interface
 {
-    public enum TaskType : int
-    {
-        Train = 0,
-        Predict = 1,
-        ConvertModel = 2,
-        Refit = 3
-    }
+    //public enum TaskType : int
+    //{
+    //    Train = 0,
+    //    Predict = 1,
+    //    ConvertModel = 2,
+    //    Refit = 3
+    //}
 
     public enum ObjectiveType : int
     {
@@ -35,8 +34,8 @@ namespace LightGBMNet.Interface
         MultiClass = 10,
         MultiClassOva = 11,
         // cross-entropy
-        XEntropy = 12,
-        XEntLambda = 13,
+        XEntropy = 12,      // TODO
+        XEntLambda = 13,    // TODO
         // ranking
         LambdaRank = 14
     }
@@ -309,39 +308,39 @@ namespace LightGBMNet.Interface
             }
         }
 
-        public static string GetTaskString(TaskType t)
-        {
-            switch(t)
-            {
-                case TaskType.Train:        return "train";
-                case TaskType.Predict:      return "predict";
-                case TaskType.ConvertModel: return "convert_model";
-                case TaskType.Refit:        return "refit";
-                default:
-                    throw new ArgumentException("TaskType");
-            }
-        }
+        //public static string GetTaskString(TaskType t)
+        //{
+        //    switch(t)
+        //    {
+        //        case TaskType.Train:        return "train";
+        //        case TaskType.Predict:      return "predict";
+        //        case TaskType.ConvertModel: return "convert_model";
+        //        case TaskType.Refit:        return "refit";
+        //        default:
+        //            throw new ArgumentException("TaskType");
+        //    }
+        //}
 
-        public static TaskType ParseTask(string x)
-        {
-            switch(x)
-            {
-                case "train":
-                case "training":
-                    return TaskType.Train;
-                case "predict":
-                case "prediction":
-                case "test":
-                    return TaskType.Predict;
-                case "convert_model":
-                    return TaskType.ConvertModel;
-                case "refit":
-                case "refit_tree":
-                    return TaskType.Refit;
-                default:
-                    throw new ArgumentException("x");
-            }
-        }
+        //public static TaskType ParseTask(string x)
+        //{
+        //    switch(x)
+        //    {
+        //        case "train":
+        //        case "training":
+        //            return TaskType.Train;
+        //        case "predict":
+        //        case "prediction":
+        //        case "test":
+        //            return TaskType.Predict;
+        //        case "convert_model":
+        //            return TaskType.ConvertModel;
+        //        case "refit":
+        //        case "refit_tree":
+        //            return TaskType.Refit;
+        //        default:
+        //            throw new ArgumentException("x");
+        //    }
+        //}
 
         public static string GetObjectiveString(ObjectiveType o)
         {
@@ -575,15 +574,20 @@ namespace LightGBMNet.Interface
             else if (typ == typeof(string))
                 return x => (object)x;
             else if (typ == typeof(bool))
-                return x => (object)Boolean.Parse(x);
+                return x =>
+                    {
+                        if (!Boolean.TryParse(x, out bool rslt))
+                            rslt = Convert.ToBoolean(Int32.Parse(x));
+                        return (object)rslt;
+                    };
             else if (typ == typeof(int[]))
-                return x => x.Split(new char[',']).Select(Int32.Parse).ToArray();
+                return x => x.Split(new char[] { ',' }).Select(Int32.Parse).ToArray();
             else if (typ == typeof(double[]))
-                return x => x.Split(new char[',']).Select(Double.Parse).ToArray();
+                return x => x.Split(new char[] { ',' }).Select(Double.Parse).ToArray();
             else if (typ == typeof(MetricType))
                 return x => (object)EnumHelper.ParseMetric(x);
-            else if (typ == typeof(TaskType))
-                return x => (object)EnumHelper.ParseTask(x);
+          //else if (typ == typeof(TaskType))
+          //    return x => (object)EnumHelper.ParseTask(x);
             else if (typ == typeof(ObjectiveType))
                 return x => (object)EnumHelper.ParseObjective(x);
             else if (typ == typeof(BoostingType))
@@ -618,8 +622,8 @@ namespace LightGBMNet.Interface
                 return x => String.Join(",", (x as double[]).Select(y => y.ToString()));
             else if (typ == typeof(MetricType))
                 return x => EnumHelper.GetMetricString((MetricType)x);
-            else if (typ == typeof(TaskType))
-                return x => EnumHelper.GetTaskString((TaskType)x);
+          //else if (typ == typeof(TaskType))
+          //    return x => EnumHelper.GetTaskString((TaskType)x);
             else if (typ == typeof(ObjectiveType))
                 return x => EnumHelper.GetObjectiveString((ObjectiveType)x);
             else if (typ == typeof(BoostingType))
@@ -697,10 +701,17 @@ namespace LightGBMNet.Interface
             {
                 if (_argToProp.TryGetValue(pm.Key, out pair))
                 {
-                    var prop = pair.Item1;
-                    var parser = pair.Item2;
-                    var obj = parser(pm.Value);
-                    prop.SetValue(rslt, obj);
+                    try
+                    {
+                        var prop = pair.Item1;
+                        var parser = pair.Item2;
+                        var obj = parser(pm.Value);
+                        prop.SetValue(rslt, obj);
+                    }
+                    catch (Exception e)
+                    {
+                        throw new FormatException($"Cannot parse '{pm.Value}' for parameter {pm.Key}", e);
+                    }
                 }
             }
             return rslt;
@@ -1783,7 +1794,7 @@ namespace LightGBMNet.Interface
             Learning = LearningParameters.FromParameters(dict);
         }
 
-        public override string ToString()
+        public Dictionary<string,string> ToDict()
         {
             var dict = new Dictionary<string, string>();
             Common.AddParameters(dict);
@@ -1791,7 +1802,12 @@ namespace LightGBMNet.Interface
             Metric.AddParameters(dict);
             Objective.AddParameters(dict);
             Learning.AddParameters(dict);
-            return ParamsHelper.JoinParameters(dict);
+            return dict;
+        }
+
+        public override string ToString()
+        {
+            return ParamsHelper.JoinParameters(ToDict());
         }
     }
 }

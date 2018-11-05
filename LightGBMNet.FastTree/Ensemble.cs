@@ -9,6 +9,7 @@ using System.Linq;
 
 namespace LightGBMNet.FastTree
 {
+
     public class Ensemble
     {
         private readonly List<RegressionTree> _trees;
@@ -48,7 +49,11 @@ namespace LightGBMNet.FastTree
         {
             double output = 0.0;
             for (int h = 0; h < NumTrees; h++)
-                output += _trees[h].GetOutput(ref feat);
+            {
+                double x = _trees[h].GetOutput(ref feat);
+              //Console.WriteLine($"{h}: {x}");
+                output += x;
+            }
             return output;
         }
 

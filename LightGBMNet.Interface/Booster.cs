@@ -11,6 +11,43 @@ namespace LightGBMNet.Interface
     /// </summary>
     public sealed class Booster : IDisposable
     {
+        private static ParamsHelper<CommonParameters>    _helperCommon    = new ParamsHelper<CommonParameters>();
+        private static ParamsHelper<DatasetParameters>   _helperDataset   = new ParamsHelper<DatasetParameters>();
+        private static ParamsHelper<MetricParameters>    _helperMetric    = new ParamsHelper<MetricParameters>();
+        private static ParamsHelper<ObjectiveParameters> _helperObjective = new ParamsHelper<ObjectiveParameters>();
+        private static ParamsHelper<LearningParameters>  _helperLearning  = new ParamsHelper<LearningParameters>();
+
+        //private static float secondBiggestFloat  = NextDown(Single.MaxValue);
+        //private static float secondSmallestFloat = NextDown(Single.MinValue);
+
+        //private static unsafe float NextDown(float x)
+        //{
+        //    uint temp = *(uint*)&x;
+        //    temp--;
+        //    return *(float*)&temp;
+        //}
+        //
+        //private static unsafe float NextUp(float x)
+        //{
+        //    uint temp = *(uint*)&x;
+        //    temp++;
+        //    return *(float*)&temp;
+        //}
+
+        private static unsafe double NextDown(double x)
+        {
+            ulong temp = *(ulong*)&x;
+            temp--;
+            return *(double*)&temp;
+        }
+
+        private static unsafe double NextUp(double x)
+        {
+            ulong temp = *(ulong*)&x;
+            temp++;
+            return *(double*)&temp;
+        }
+
         public enum PredictType : int
         {
             /// <summary>
@@ -215,7 +252,7 @@ namespace LightGBMNet.Interface
                                    nameof(PInvoke.BoosterSaveModel));
         }
 
-        private unsafe string GetModelString()
+        public unsafe string GetModelString()
         {
             long bufLen = 2L << 15;
             byte[] buffer = new byte[bufLen];
@@ -263,9 +300,7 @@ namespace LightGBMNet.Interface
 
         private static double[] Str2DoubleArray(string str, char delimiter)
         {
-            return str.Split(delimiter).Select(
-                x => { double t; double.TryParse(x, out t); return t; }
-            ).ToArray();
+            return str.Split(delimiter).Select(double.Parse).ToArray();
 
         }
 
@@ -299,15 +334,17 @@ namespace LightGBMNet.Interface
 
         private static double[] GetDefaultValue(double[] threshold, UInt32[] decisionType)
         {
-            double[] ret = new double[threshold.Length];
+            var ret = new double[threshold.Length];
             for (int i = 0; i < threshold.Length; ++i)
             {
-                if (GetHasMissing(decisionType[i]) && !GetIsCategoricalSplit(decisionType[i]))
+                if (GetHasMissing(decisionType[i]) && !GetIsCategoricalSplit(decisionType[i])) // NOTE: categorical always take RHS branch for missing
                 {
+                    // need to be careful here to generate a value that is genuinely LEQ for left branch, and GT for right branch!
+                    var t = threshold[i];
                     if (GetIsDefaultLeft(decisionType[i]))
-                        ret[i] = threshold[i];
+                        ret[i] = t; //  (t == 0.0f) ? -1.0f : ((t > 0) ? NextDown(t) : NextUp(t)); 
                     else
-                        ret[i] = threshold[i] + 1;
+                        ret[i] = (t == 0.0f) ? +1.0f : ((t > 0) ? NextUp(t) : NextDown(t));  // TODO: INFINITY!!!
                 }
             }
             return ret;
@@ -520,12 +557,12 @@ namespace LightGBMNet.Interface
         }
 
 
-
-        public FastTree.Ensemble GetModel() // int[] categoricalFeatureBoudaries)
+        public (FastTree.Ensemble, Parameters) GetModel() // int[] categoricalFeatureBoudaries)
         {
             FastTree.Ensemble res = new FastTree.Ensemble();
             string modelString = GetModelString();
             string[] lines = modelString.Split('\n');
+            var prms = new Dictionary<string, string>();
             int i = 0;
             for (; i < lines.Length;)
             {
@@ -547,16 +584,42 @@ namespace LightGBMNet.Interface
                         var leftChild = Str2IntArray(kvPairs["left_child"], ' ');
                         var rightChild = Str2IntArray(kvPairs["right_child"], ' ');
                         var splitFeature = Str2IntArray(kvPairs["split_feature"], ' ');
-                        var threshold = Str2DoubleArray(kvPairs["threshold"], ' ');
+                        var thresholdDbl = Str2DoubleArray(kvPairs["threshold"], ' ');
                         var splitGain = Str2DoubleArray(kvPairs["split_gain"], ' ');
                         var leafOutput = Str2DoubleArray(kvPairs["leaf_value"], ' ');
                         var decisionType = Str2UIntArray(kvPairs["decision_type"], ' ');
-                        var defaultValue = GetDefaultValue(threshold, decisionType);
-                        var categoricalSplit = new bool[numLeaves - 1];
 
+                        //var thresholdSgl = new float[thresholdDbl.Length];
+                        //for (var j = 0; j < thresholdDbl.Length; j++)
+                        //{
+                        //    // See 'AvoidInf' in lightgbm source
+                        //    var t = thresholdDbl[j];
+                        //    if (t == 1e300)
+                        //        thresholdSgl[j] = secondBiggestFloat;
+                        //    else if (t == -1e300)
+                        //        thresholdSgl[j] = secondSmallestFloat;
+                        //    else
+                        //        thresholdSgl[j] = (float)t;
+                        //}
+
+                        for (var j = 0; j < thresholdDbl.Length; j++)
+                        {
+                            // See 'AvoidInf' in lightgbm source
+                            var t = thresholdDbl[j];
+                            if (t == 1e300)
+                                thresholdDbl[j] = double.PositiveInfinity;
+                            else if (t == -1e300)
+                                thresholdDbl[j] = double.NegativeInfinity;
+                        }
+
+                        //var defaultValue = GetDefaultValue(thresholdSgl, decisionType);
+                        var defaultValue = GetDefaultValue(thresholdDbl, decisionType);
+
+                        var categoricalSplit = new bool[numLeaves - 1];
                         var catBoundaries = Array.Empty<int>();
                         var catThresholds = Array.Empty<uint>();
-                        if (numCat > 0) {
+                        if (numCat > 0)
+                        {
                             catBoundaries = Str2IntArray(kvPairs["cat_boundaries"], ' ');
                             catThresholds = Str2UIntArray(kvPairs["cat_threshold"], ' ');
                             for (int node = 0; node < numLeaves - 1; ++node)
@@ -569,8 +632,8 @@ namespace LightGBMNet.Interface
                                         numLeaves,
                                         splitFeature,
                                         splitGain,
-                                        threshold.Select(x => (float)x).ToArray(),
-                                        defaultValue.Select(x => (float)x).ToArray(),
+                                        thresholdDbl, //thresholdSgl,
+                                        defaultValue,
                                         leftChild,
                                         rightChild,
                                         leafOutput,
@@ -583,15 +646,14 @@ namespace LightGBMNet.Interface
                     {
                         //var tree = new FastTree.RegressionTree(2);
                         var leafOutput = Str2DoubleArray(kvPairs["leaf_value"], ' ');
-                        if (leafOutput[0] != 0)
+                        //if (leafOutput[0] != 0) // still need to add tree, e.g., for multiclass
                         {
-                            // Convert Constant tree to Two-leaf tree, avoid being filter by TLC.
                             var tree = FastTree.RegressionTree.Create(
                                         2,
                                         new int[] { 0 },
                                         new double[] { 0 },
-                                        new float[] { 0 },
-                                        new float[] { 0 },
+                                        new double[] { 0 },
+                                        new double[] { 0 },
                                         new int[] { -1 },
                                         new int[] { -2 },
                                         new double[] { leafOutput[0], leafOutput[0] },
@@ -603,9 +665,28 @@ namespace LightGBMNet.Interface
                     }
                 }
                 else
+                {
+                    // [objective: binary]
+                    if (lines[i].StartsWith("["))
+                    {
+                        var bits = lines[i].Split(new char[] { '[', ']', ' ', ':' }, StringSplitOptions.RemoveEmptyEntries);
+                        if (bits.Length == 2)   // ignores, e.g. [data: ]
+                            prms.Add(bits[0], bits[1]);
+                    }
                     ++i;
+                }
             }
-            return res;
+
+            // extract parameters
+            var p = new Parameters {
+                Common = _helperCommon.FromParameters(prms),
+                Dataset = _helperDataset.FromParameters(prms),
+                Metric = _helperMetric.FromParameters(prms),
+                Objective = _helperObjective.FromParameters(prms),
+                Learning = _helperLearning.FromParameters(prms)
+                };
+            
+            return (res, p);
         }
  
         #region IDisposable
