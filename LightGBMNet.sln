@@ -3,13 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27703.2026
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LightGBMNet.Interface", "LightGBMNet.Interface\LightGBMNet.Interface.csproj", "{286898F0-C0AC-45F1-9C5B-B204543BFF65}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LightGBMNet.Test", "LightGBMNet.Test\LightGBMNet.Test.csproj", "{FC113B67-575B-4251-9C86-E0FB88EB94F4}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LightGBMNet.Interface.Test", "LightGBMNet.Interface.Test\LightGBMNet.Interface.Test.csproj", "{FC113B67-575B-4251-9C86-E0FB88EB94F4}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LightGBMNet.Train", "LightGBMNet.Train\LightGBMNet.Train.csproj", "{7535D1E0-454E-442B-8D0C-CFEA2E85C277}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LightGBMNet.Training", "LightGBMNet.Training\LightGBMNet.Training.csproj", "{7535D1E0-454E-442B-8D0C-CFEA2E85C277}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LightGBMNet.FastTree", "LightGBMNet.FastTree\LightGBMNet.FastTree.csproj", "{186F0EC3-5B11-428B-A487-88E8072A2A4A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LightGBMNet.Tree", "LightGBMNet.Tree\LightGBMNet.Tree.csproj", "{186F0EC3-5B11-428B-A487-88E8072A2A4A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -19,12 +17,6 @@ Global
 		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{286898F0-C0AC-45F1-9C5B-B204543BFF65}.Debug|Any CPU.ActiveCfg = Debug|x64
-		{286898F0-C0AC-45F1-9C5B-B204543BFF65}.Debug|x64.ActiveCfg = Debug|x64
-		{286898F0-C0AC-45F1-9C5B-B204543BFF65}.Debug|x64.Build.0 = Debug|x64
-		{286898F0-C0AC-45F1-9C5B-B204543BFF65}.Release|Any CPU.ActiveCfg = Release|x64
-		{286898F0-C0AC-45F1-9C5B-B204543BFF65}.Release|x64.ActiveCfg = Release|x64
-		{286898F0-C0AC-45F1-9C5B-B204543BFF65}.Release|x64.Build.0 = Release|x64
 		{FC113B67-575B-4251-9C86-E0FB88EB94F4}.Debug|Any CPU.ActiveCfg = Debug|x64
 		{FC113B67-575B-4251-9C86-E0FB88EB94F4}.Debug|x64.ActiveCfg = Debug|x64
 		{FC113B67-575B-4251-9C86-E0FB88EB94F4}.Debug|x64.Build.0 = Debug|x64
