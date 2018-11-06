@@ -32,6 +32,7 @@ namespace LightGBMNet.Train.Test
                 pms.Learning.BaggingFraction = rand.Next(1, 99) / 100.0;
                 pms.Learning.FeatureFraction = rand.Next(1, 99) / 100.0;
             }
+            if (rand.Next(2) == 0) pms.Learning.LearningRate = rand.Next(1,100)/1e3;
 
             if (objective == ObjectiveType.MultiClass || objective == ObjectiveType.MultiClassOva)
                 pms.Objective.NumClass = rand.Next(2, 4);
@@ -53,6 +54,7 @@ namespace LightGBMNet.Train.Test
             if (rand.Next(2) == 0) pms.Dataset.FeatureContri = Enumerable.Range(0, numColumns).Select(x => rand.Next(1,100)/100.0).ToArray();
             if (rand.Next(2) == 0) pms.Learning.EarlyStoppingRound = rand.Next(1, 20);
             if (rand.Next(2) == 0) pms.Common.DeviceType = DeviceType.GPU;
+
             pms.Objective.MetricFreq = rand.Next(1,20);
 
             return pms;
@@ -255,7 +257,7 @@ namespace LightGBMNet.Train.Test
                             }
                         }
 
-                        var gains = model.GetFeatureWeights();
+                        var gains = model.GetFeatureWeights(rand.Next(2) == 0, rand.Next(2) == 0);
                         foreach(var kv in gains)
                         {
                             Assert.True(0 <= kv.Key && kv.Key < trainData.NumColumns);
@@ -364,7 +366,7 @@ namespace LightGBMNet.Train.Test
                                 Assert.Equal(output.Values[i], output3[i], 3);
                         }
 
-                        var gains = model.GetFeatureWeights();
+                        var gains = model.GetFeatureWeights(rand.Next(2)==0, rand.Next(2) == 0);
                         foreach (var kv in gains)
                         {
                             Assert.True(0 <= kv.Key && kv.Key < trainData.NumColumns);
@@ -468,7 +470,7 @@ namespace LightGBMNet.Train.Test
                             }
                         }
 
-                        var gains = model.GetFeatureWeights();
+                        var gains = model.GetFeatureWeights(rand.Next(2) == 0, rand.Next(2) == 0);
                         foreach (var kv in gains)
                         {
                             Assert.True(0 <= kv.Key && kv.Key < trainData.NumColumns);
@@ -558,7 +560,7 @@ namespace LightGBMNet.Train.Test
                             }
                         }
 
-                        var gains = model.GetFeatureWeights();
+                        var gains = model.GetFeatureWeights(rand.Next(2) == 0, rand.Next(2) == 0);
                         foreach (var kv in gains)
                         {
                             Assert.True(0 <= kv.Key && kv.Key < trainData.NumColumns);

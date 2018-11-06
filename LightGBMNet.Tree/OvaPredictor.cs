@@ -41,14 +41,18 @@ namespace LightGBMNet.Tree
 
         public FeatureToGainMap GetFeatureWeights(bool normalise = false, bool splits = false)
         {
-            if (normalise)
-                throw new ArgumentException("Cannot normalise across multiple ensembles");
-
             var gainMap = new FeatureToGainMap();
+            var numTrees = 0;
             foreach (var p in Predictors)
             {
-                foreach (var kv in p.GetFeatureWeights(normalise, splits))
+                numTrees += p.MaxNumTrees;
+                foreach (var kv in p.GetFeatureWeights(false, splits))
                     gainMap[kv.Key] += kv.Value;
+            }
+            if (normalise)
+            {
+                foreach (var k in gainMap.Keys.ToList())
+                    gainMap[k] /= gainMap[k] / numTrees;
             }
             return gainMap;            
         }
