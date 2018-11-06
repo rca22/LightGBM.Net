@@ -23,7 +23,7 @@ namespace LightGBMNet.Train.Test
             pms.Learning.NumIterations = rand.Next(1, 100);
             pms.Common.Verbosity = VerbosityType.Error;
 
-            pms.Learning.Objective = objective;
+            pms.Objective.Objective = objective;
             pms.Learning.Boosting = boostingTypes[rand.Next(boostingTypes.Length)];
 
             if (pms.Learning.Boosting == BoostingType.RandomForest)
@@ -52,6 +52,8 @@ namespace LightGBMNet.Train.Test
             if (rand.Next(2) == 0) pms.Dataset.MonotoneConstraints = Enumerable.Range(0, numColumns).Select(x => rand.Next(2)-1).ToArray();
             if (rand.Next(2) == 0) pms.Dataset.FeatureContri = Enumerable.Range(0, numColumns).Select(x => rand.Next(1,100)/100.0).ToArray();
             if (rand.Next(2) == 0) pms.Learning.EarlyStoppingRound = rand.Next(1, 20);
+            if (rand.Next(2) == 0) pms.Common.DeviceType = DeviceType.GPU;
+            pms.Objective.MetricFreq = rand.Next(1,20);
 
             return pms;
         }
@@ -80,6 +82,8 @@ namespace LightGBMNet.Train.Test
                 }
             }
 
+            var scales = Enumerable.Range(0, numColumns).Select(x => Math.Pow(10.0, rand.Next(-10, 10))).ToArray();
+
             var rows = new float[numRows][];
             var weights = (rand.Next(2) == 0) ? new float[numRows] : null;
             for (int i = 0; i < numRows; ++i)
@@ -96,7 +100,7 @@ namespace LightGBMNet.Train.Test
                         if (categorical.TryGetValue(j, out int numClass))
                             row[j] = rand.Next(numClass);
                         else
-                            row[j] = (rand.Next(100) == 0) ? 0.0f : (float)(rand.NextDouble() - 0.5);
+                            row[j] = (rand.Next(100) == 0) ? 0.0f : (float)(scales[j] * (rand.NextDouble() - 0.5));
                     }
                 }
                 rows[i] = row;
@@ -140,9 +144,10 @@ namespace LightGBMNet.Train.Test
         {
             var rslt = CreateRandomDenseData(rand, ref categorical, useMissing, numColumns);
 
+            var scale = Math.Pow(10.0, rand.Next(-10, 10));
             var labels = new float[rslt.NumRows];
             for (int i = 0; i < labels.Length; ++i)
-                labels[i] = (float)(rand.NextDouble() - 0.5);
+                labels[i] = (float)(scale * (rand.NextDouble() - 0.5));
 
             rslt.Labels = labels;
             rslt.Validate();
@@ -214,7 +219,7 @@ namespace LightGBMNet.Train.Test
                 try
                 {
                     using (var datasets = new Datasets(pms.Common, pms.Dataset, trainData, validData))
-                    using (var trainer = new BinaryTrainer(pms.Learning, pms.Objective, pms.Metric))
+                    using (var trainer = new BinaryTrainer(pms.Learning, pms.Objective))
                     {
                         var model = trainer.Train(datasets);
 
@@ -285,7 +290,7 @@ namespace LightGBMNet.Train.Test
                 try
                 {
                     using (var datasets = new Datasets(pms.Common, pms.Dataset, trainData, validData))
-                    using (var trainer = new MulticlassTrainer(pms.Learning, pms.Objective, pms.Metric))
+                    using (var trainer = new MulticlassTrainer(pms.Learning, pms.Objective))
                     {
                         //trainer.ToCommandLineFiles(datasets);
 
@@ -425,7 +430,7 @@ namespace LightGBMNet.Train.Test
                   //    continue;
 
                     using (var datasets = new Datasets(pms.Common, pms.Dataset, trainData, validData))
-                    using (var trainer = new RegressionTrainer(pms.Learning, pms.Objective, pms.Metric))
+                    using (var trainer = new RegressionTrainer(pms.Learning, pms.Objective))
                     {
                         if (true)
                             trainer.ToCommandLineFiles(datasets);
@@ -505,7 +510,7 @@ namespace LightGBMNet.Train.Test
             {
                 int numColumns = rand.Next(1, 10);
                 var pms = GenerateParameters(rand, ObjectiveType.LambdaRank, numColumns);
-                pms.Metric.EvalAt = new int[] { 5 };    // TODO: need at most one or get 'Expected at most one metric' error
+                pms.Objective.EvalAt = new int[] { 5 };    // TODO: need at most one or get 'Expected at most one metric' error
                 var numRanks = rand.Next(2, 4);
 
                 Dictionary<int, int> categorical = null;
@@ -518,7 +523,7 @@ namespace LightGBMNet.Train.Test
                 try
                 {
                     using (var datasets = new Datasets(pms.Common, pms.Dataset, trainData, validData))
-                    using (var trainer = new RankingTrainer(pms.Learning, pms.Objective, pms.Metric))
+                    using (var trainer = new RankingTrainer(pms.Learning, pms.Objective))
                     {
                         var model = trainer.Train(datasets);
 

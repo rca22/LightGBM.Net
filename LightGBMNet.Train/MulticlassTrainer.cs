@@ -13,16 +13,16 @@ namespace LightGBMNet.Train
     {
         public override PredictionKind PredictionKind => PredictionKind.MultiClassClassification;
 
-        public MulticlassTrainer(LearningParameters lp, ObjectiveParameters op, MetricParameters mp) : base(lp, op, mp)
+        public MulticlassTrainer(LearningParameters lp, ObjectiveParameters op) : base(lp, op)
         {
-            if(!(lp.Objective == ObjectiveType.MultiClass || lp.Objective == ObjectiveType.MultiClassOva))
+            if(!(op.Objective == ObjectiveType.MultiClass || op.Objective == ObjectiveType.MultiClassOva))
                 throw new Exception("Require Objective == MultiClass or MultiClassOva");
 
             if (op.NumClass <= 1)
                 throw new Exception("Require NumClass > 1");
 
-            if (mp.Metric == MetricType.DefaultMetric)
-                mp.Metric = MetricType.MultiLogLoss;     // TODO: why was this MultiError?????
+            if (op.Metric == MetricType.DefaultMetric)
+                op.Metric = MetricType.MultiLogLoss;     // TODO: why was this MultiError?????
         }
 
         private Ensemble GetBinaryEnsemble(int classID)
@@ -49,7 +49,7 @@ namespace LightGBMNet.Train
             if (TrainedEnsemble.NumTrees % numClass != 0)
                 throw new Exception("Number of trees should be a multiple of number of classes.");
 
-            var isSoftMax = (Learning.Objective == ObjectiveType.MultiClass);
+            var isSoftMax = (Objective.Objective == ObjectiveType.MultiClass);
             IPredictorWithFeatureWeights<double>[] predictors = new IPredictorWithFeatureWeights<double>[numClass];
             var cali = isSoftMax ? null : new PlattCalibrator(-Objective.Sigmoid);
             for (int i = 0; i < numClass; ++i)

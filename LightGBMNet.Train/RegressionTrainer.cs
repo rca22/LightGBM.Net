@@ -13,35 +13,35 @@ namespace LightGBMNet.Train
     {
         public override PredictionKind PredictionKind => PredictionKind.Regression;
 
-        public RegressionTrainer(LearningParameters lp, ObjectiveParameters op, MetricParameters mp) : base(lp, op, mp)
+        public RegressionTrainer(LearningParameters lp, ObjectiveParameters op) : base(lp, op)
         {
-            if (!(lp.Objective == ObjectiveType.Regression ||
-                  lp.Objective == ObjectiveType.RegressionL1 ||
-                  lp.Objective == ObjectiveType.Huber ||
-                  lp.Objective == ObjectiveType.Fair ||
-                  lp.Objective == ObjectiveType.Poisson ||
-                  lp.Objective == ObjectiveType.Quantile ||
-                  lp.Objective == ObjectiveType.Mape ||
-                  lp.Objective == ObjectiveType.Gamma ||
-                  lp.Objective == ObjectiveType.Tweedie
+            if (!(op.Objective == ObjectiveType.Regression ||
+                  op.Objective == ObjectiveType.RegressionL1 ||
+                  op.Objective == ObjectiveType.Huber ||
+                  op.Objective == ObjectiveType.Fair ||
+                  op.Objective == ObjectiveType.Poisson ||
+                  op.Objective == ObjectiveType.Quantile ||
+                  op.Objective == ObjectiveType.Mape ||
+                  op.Objective == ObjectiveType.Gamma ||
+                  op.Objective == ObjectiveType.Tweedie
                   ))
                 throw new Exception("Require regression ObjectiveType");
 
-            if (mp.Metric == MetricType.DefaultMetric)
-                mp.Metric = MetricType.Mse;
+            if (op.Metric == MetricType.DefaultMetric)
+                op.Metric = MetricType.Mse;
         }
 
         private bool PositiveOutput()
         {
-            return Learning.Objective == ObjectiveType.Poisson ||
-                   Learning.Objective == ObjectiveType.Gamma ||
-                   Learning.Objective == ObjectiveType.Tweedie;
+            return Objective.Objective == ObjectiveType.Poisson ||
+                   Objective.Objective == ObjectiveType.Gamma ||
+                   Objective.Objective == ObjectiveType.Tweedie;
         }
 
         private bool SqrtOutput()
         {
             return Objective.RegSqrt &&
-                   Learning.Objective != ObjectiveType.Huber &&
+                   Objective.Objective != ObjectiveType.Huber &&
                    !PositiveOutput();
         }
 

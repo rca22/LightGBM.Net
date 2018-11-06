@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -693,6 +694,34 @@ namespace LightGBMNet.Train
             }
         }
 
+        public bool Equal(T x, T y)
+        {
+            return _propToArgNameAndDefault.Keys.All(prop =>
+                StructuralComparisons.StructuralComparer.Compare(prop.GetValue(x), prop.GetValue(y)) == 0
+                );
+        }
+
+        public int GetHashCode(T x)
+        {
+            unchecked
+            {
+                int hash = 13;
+                foreach (var prop in _propToArgNameAndDefault.Keys)
+                {
+                    hash *= 7;
+                    var value = prop.GetValue(x);
+                    if (!object.ReferenceEquals(null, value)) {
+                        if (prop.PropertyType.IsArray)
+                            hash += ((IStructuralEquatable)value).GetHashCode(StructuralComparisons.StructuralEqualityComparer);
+                        else
+                            hash += value.GetHashCode();
+                    }
+                    //Console.WriteLine($"{prop.Name} {value.GetHashCode()} {hash}");
+                }
+                return hash;
+            }
+        }
+
         public T FromParameters(Dictionary<string,string> pms)
         {
             var rslt = new T();
@@ -970,6 +999,29 @@ namespace LightGBMNet.Train
             _helper.AddParameters(this, result);
         }
 
+        #region Structural equality overrides
+        public override int GetHashCode() => _helper.GetHashCode(this);
+
+        public override bool Equals(object value)
+        {
+            if (object.ReferenceEquals(null, value)) return false;
+            if (object.ReferenceEquals(this, value)) return true;
+            if (value.GetType() != this.GetType()) return false;
+            return _helper.Equal(this, (DatasetParameters)value);
+        }
+
+        public static bool operator ==(DatasetParameters t, DatasetParameters other)
+        {
+            if (!object.ReferenceEquals(null, t)) return t.Equals(other);
+            else if (!object.ReferenceEquals(null, other)) return other.Equals(t);
+            else return true;
+        }
+
+        public static bool operator !=(DatasetParameters t, DatasetParameters other)
+        {
+            return !(t == other);
+        }
+        #endregion
     }
 
 
@@ -981,8 +1033,6 @@ namespace LightGBMNet.Train
         //public TaskType Task { get; set; } = TaskType.Train;
         //public string Data { get; set; } = "";
         //public string Valid { get; set; } = "";
-
-        public ObjectiveType Objective { get; set; } = ObjectiveType.Regression;
 
         /// <summary>
         /// Refer to Parallel Learning Guide to get more details
@@ -1381,11 +1431,36 @@ namespace LightGBMNet.Train
             _helper.AddParameters(this, result);
         }
 
+        #region Structural equality overrides
+        public override int GetHashCode() => _helper.GetHashCode(this);
+
+        public override bool Equals(object value)
+        {
+            if (object.ReferenceEquals(null, value)) return false;
+            if (object.ReferenceEquals(this, value)) return true;
+            if (value.GetType() != this.GetType()) return false;
+            return _helper.Equal(this, (LearningParameters)value);
+        }
+
+        public static bool operator ==(LearningParameters t, LearningParameters other)
+        {
+            if (!object.ReferenceEquals(null, t)) return t.Equals(other);
+            else if (!object.ReferenceEquals(null, other)) return other.Equals(t);
+            else return true;
+        }
+
+        public static bool operator !=(LearningParameters t, LearningParameters other)
+        {
+            return !(t == other);
+        }
+        #endregion
     }
 
     public class ObjectiveParameters : ParametersBase<ObjectiveParameters>
     {
         #region Properties
+
+        public ObjectiveType Objective { get; set; } = ObjectiveType.Regression;
 
         private int _numClass = 1;
         /// <summary>
@@ -1545,37 +1620,8 @@ namespace LightGBMNet.Train
         /// </summary>
         public double[] LabelGain { get; set; } = _defLabelGain;
 
-        #endregion
 
-        private static readonly double[] _defLabelGain;
-        static ObjectiveParameters()
-        {
-            _defLabelGain = new double[31];
-            for (int i = 0; i < 31; ++i)
-                _defLabelGain[i] = (1L << i) - 1L;
-        }
-
-        public ObjectiveParameters() : base()
-        {
-        }
-
-        public ObjectiveParameters(Dictionary<string, string> data)
-        {
-            FromParameters(data);
-        }
-
-        public override void AddParameters(Dictionary<string, string> result)
-        {
-            _helper.AddParameters(this, result);
-        }
-    }
-
-    /// <summary>
-    /// Parameters describing the metric <see cref="https://github.com/Microsoft/LightGBM/blob/master/docs/Parameters.rst#metric-parameters"/>
-    /// </summary>
-    public class MetricParameters : ParametersBase<MetricParameters>
-    {
-        #region Properties
+        /// Parameters describing the metric <see cref="https://github.com/Microsoft/LightGBM/blob/master/docs/Parameters.rst#metric-parameters"/>
 
         private MetricType _metric = MetricType.DefaultMetric;
         /// <summary>
@@ -1621,12 +1667,19 @@ namespace LightGBMNet.Train
 
         #endregion
 
+        private static readonly double[] _defLabelGain;
+        static ObjectiveParameters()
+        {
+            _defLabelGain = new double[31];
+            for (int i = 0; i < 31; ++i)
+                _defLabelGain[i] = (1L << i) - 1L;
+        }
 
-        public MetricParameters()
+        public ObjectiveParameters() : base()
         {
         }
 
-        public MetricParameters(Dictionary<string, string> data)
+        public ObjectiveParameters(Dictionary<string, string> data)
         {
             FromParameters(data);
         }
@@ -1635,7 +1688,32 @@ namespace LightGBMNet.Train
         {
             _helper.AddParameters(this, result);
         }
+
+        #region Structural equality overrides
+        public override int GetHashCode() => _helper.GetHashCode(this);
+
+        public override bool Equals(object value)
+        {
+            if (object.ReferenceEquals(null, value)) return false;
+            if (object.ReferenceEquals(this, value)) return true;
+            if (value.GetType() != this.GetType()) return false;
+            return _helper.Equal(this, (ObjectiveParameters)value);
+        }
+
+        public static bool operator ==(ObjectiveParameters t, ObjectiveParameters other)
+        {
+            if (!object.ReferenceEquals(null, t)) return t.Equals(other);
+            else if (!object.ReferenceEquals(null, other)) return other.Equals(t);
+            else return true;
+        }
+
+        public static bool operator !=(ObjectiveParameters t, ObjectiveParameters other)
+        {
+            return !(t == other);
+        }
+        #endregion
     }
+
 
     /// <summary>
     /// Contains both network, verbosity and threading parameters.
@@ -1753,16 +1831,40 @@ namespace LightGBMNet.Train
             FromParameters(data);
         }
 
+        public CommonParameters() : base()
+        {
+        }
+
         public override void AddParameters(Dictionary<string, string> result)
         {
             _helper.AddParameters(this, result);
         }
 
-        public CommonParameters()
+        #region Structural equality overrides
+        public override int GetHashCode() => _helper.GetHashCode(this);
+
+        public override bool Equals(object value)
         {
+            if (object.ReferenceEquals(null, value)) return false;
+            if (object.ReferenceEquals(this, value)) return true;
+            if (value.GetType() != this.GetType()) return false;
+            return _helper.Equal(this, (CommonParameters)value);
         }
+
+        public static bool operator ==(CommonParameters t, CommonParameters other)
+        {
+            if (!object.ReferenceEquals(null, t)) return t.Equals(other);
+            else if (!object.ReferenceEquals(null, other)) return other.Equals(t);
+            else return true;
+        }
+
+        public static bool operator !=(CommonParameters t, CommonParameters other)
+        {
+            return !(t == other);
+        }
+        #endregion
     }
-  
+
 
     public class Parameters
     {
@@ -1771,7 +1873,6 @@ namespace LightGBMNet.Train
         public DatasetParameters Dataset { get; set; }
 
         // these don't
-        public MetricParameters Metric { get; set; }
         public ObjectiveParameters Objective { get; set; }
         public LearningParameters Learning { get; set; }
 
@@ -1779,7 +1880,6 @@ namespace LightGBMNet.Train
         {
             Common = new CommonParameters();
             Dataset = new DatasetParameters();
-            Metric = new MetricParameters();
             Objective = new ObjectiveParameters();
             Learning = new LearningParameters();
         }
@@ -1789,7 +1889,6 @@ namespace LightGBMNet.Train
             var dict = ParamsHelper.SplitParameters(v);
             Common = CommonParameters.FromParameters(dict);
             Dataset = DatasetParameters.FromParameters(dict);
-            Metric = MetricParameters.FromParameters(dict);
             Objective = ObjectiveParameters.FromParameters(dict);
             Learning = LearningParameters.FromParameters(dict);
         }
@@ -1799,7 +1898,6 @@ namespace LightGBMNet.Train
             var dict = new Dictionary<string, string>();
             Common.AddParameters(dict);
             Dataset.AddParameters(dict);
-            Metric.AddParameters(dict);
             Objective.AddParameters(dict);
             Learning.AddParameters(dict);
             return dict;
@@ -1809,5 +1907,44 @@ namespace LightGBMNet.Train
         {
             return ParamsHelper.JoinParameters(ToDict());
         }
+
+        #region Structural equality overrides
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = 13;
+                hash = (hash * 7) + (!Object.ReferenceEquals(null, Common) ? Common.GetHashCode() : 0);
+                hash = (hash * 7) + (!Object.ReferenceEquals(null, Dataset) ? Dataset.GetHashCode() : 0);
+                hash = (hash * 7) + (!Object.ReferenceEquals(null, Objective) ? Objective.GetHashCode() : 0);
+                hash = (hash * 7) + (!Object.ReferenceEquals(null, Learning) ? Learning.GetHashCode() : 0);
+                return hash;
+            }
+        }
+
+        public override bool Equals(object value)
+        {
+            if (object.ReferenceEquals(null, value)) return false;
+            if (object.ReferenceEquals(this, value)) return true;
+            if (value.GetType() != this.GetType()) return false;
+            var that = (Parameters)value;
+            return this.Common == that.Common &&
+                   this.Dataset == that.Dataset &&
+                   this.Objective == that.Objective &&
+                   this.Learning == that.Learning;
+        }
+
+        public static bool operator ==(Parameters t, Parameters other)
+        {
+            if (!object.ReferenceEquals(null, t)) return t.Equals(other);
+            else if (!object.ReferenceEquals(null, other)) return other.Equals(t);
+            else return true;
+        }
+
+        public static bool operator !=(Parameters t, Parameters other)
+        {
+            return !(t == other);
+        }
+        #endregion
     }
 }

@@ -14,12 +14,12 @@ namespace LightGBMNet.Train
     {
         public override PredictionKind PredictionKind => PredictionKind.Ranking;
 
-        public RankingTrainer(LearningParameters lp, ObjectiveParameters op, MetricParameters mp) : base(lp, op, mp)
+        public RankingTrainer(LearningParameters lp, ObjectiveParameters op) : base(lp, op)
         {
-            if (lp.Objective != ObjectiveType.LambdaRank)
+            if (op.Objective != ObjectiveType.LambdaRank)
                 throw new Exception("Require Objective == ObjectiveType.LambdaRank");
-            if (mp.Metric == MetricType.DefaultMetric)
-                mp.Metric = MetricType.Ndcg;
+            if (op.Metric == MetricType.DefaultMetric)
+                op.Metric = MetricType.Ndcg;
         }
 
         private protected override IPredictorWithFeatureWeights<double> CreatePredictor()

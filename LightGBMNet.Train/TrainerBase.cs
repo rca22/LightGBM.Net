@@ -6,7 +6,7 @@ using System;
 using System.IO;
 using System.Diagnostics;
 using System.Linq;
-using LightGBMNet.Train;
+using System.Collections.Generic;
 using LightGBMNet.Tree;
 
 namespace LightGBMNet.Train
@@ -287,7 +287,7 @@ namespace LightGBMNet.Train
                         CommonParameters cp,
                         DatasetParameters dp)
         {
-            var dataset = new Dataset(data.Features
+            var dataset = new Dataset( data.Features
                                      , data.NumColumns
                                      , cp
                                      , dp
@@ -409,8 +409,6 @@ namespace LightGBMNet.Train
     {
         public abstract PredictionKind PredictionKind { get; }
         private protected abstract IPredictorWithFeatureWeights<TOutput> CreatePredictor();
-
-        public MetricParameters Metric { get; set; }
         public ObjectiveParameters Objective { get; set; }
         public LearningParameters Learning { get; set; }
 
@@ -420,15 +418,18 @@ namespace LightGBMNet.Train
 
         private Booster Booster { get; set; } = null;
 
+        public Dictionary<int, double> TrainMetrics { get; } = new Dictionary<int, double>();
+        public Dictionary<int, double> ValidMetrics { get; } = new Dictionary<int, double>();
+
         public string GetModelString() => Booster.GetModelString();
 
         private protected bool AverageOutput => (Learning.Boosting == BoostingType.RandomForest);
 
-        private protected TrainerBase(LearningParameters lp, ObjectiveParameters op, MetricParameters mp)
+        private protected TrainerBase(LearningParameters lp, ObjectiveParameters op)
         {
             Learning = lp;
             Objective = op;
-            Metric = mp;
+
             //ParallelTraining = Args.ParallelTrainer != null ? Args.ParallelTrainer.CreateComponent(env) : new SingleTrainer();
             //InitParallelTraining();
         }
@@ -447,7 +448,6 @@ namespace LightGBMNet.Train
             {
                 Common = data.Common,
                 Dataset = data.Dataset,
-                Metric = Metric,
                 Objective = Objective,
                 Learning = Learning
             };
@@ -492,11 +492,17 @@ namespace LightGBMNet.Train
 
         public IPredictorWithFeatureWeights<TOutput> Train(Datasets data)
         {
+            // For multi class, the number of labels is required.
+            if (!(PredictionKind != PredictionKind.MultiClassClassification || Objective.NumClass > 1))
+                throw new Exception("LightGBM requires the number of classes to be specified in the parameters.");
+
+            TrainMetrics.Clear();
+            ValidMetrics.Clear();
             Booster?.Dispose();
             Booster = null;
 
             var args = GetParameters(data);
-            Booster = TrainCore(args, data.Training, data.Validation);
+            Booster = Train(args, data.Training, data.Validation, TrainMetrics, ValidMetrics);
 
             (var model, var argsout) = Booster.GetModel();
             TrainedEnsemble = model;
@@ -525,8 +531,8 @@ namespace LightGBMNet.Train
             return rslt;
         }
 
-        public double TrainingMetric => Booster.EvalTrain();
-        public double ValidationMetric => Booster.EvalValid();
+        //public double TrainingMetric => Booster.EvalTrain();
+        //public double ValidationMetric => Booster.EvalValid();
 
         // TODO TODO TODO
         //private void InitParallelTraining()
@@ -559,25 +565,24 @@ namespace LightGBMNet.Train
         }
 
 
-        private Booster TrainCore(Parameters args, Dataset dtrain, Dataset dvalid = null)
-        {
-            if (dtrain == null) throw new ArgumentNullException(nameof(dtrain));
-
-            // For multi class, the number of labels is required.
-            if (!(PredictionKind != PredictionKind.MultiClassClassification || Objective.NumClass > 1))
-                throw new Exception("LightGBM requires the number of classes to be specified in the parameters.");
-
-            return Train(args, dtrain, dvalid: dvalid);
-        }
+        //private Booster TrainCore(Parameters args, Dataset dtrain, Dataset dvalid = null)
+        //{
+        //
+        //    return Train(args, dtrain, dvalid: dvalid);
+        //}
 
         /// <summary>
         /// Train and return a booster.
         /// </summary>
-        public static Booster Train(Parameters parameters,
-                                    Dataset dtrain,
-                                    Dataset dvalid = null
+        private static Booster Train( Parameters parameters
+                                    , Dataset dtrain
+                                    , Dataset dvalid
+                                    , Dictionary<int, double> trainMetrics
+                                    , Dictionary<int, double> validMetrics
                                     )
         {
+            if (dtrain == null) throw new ArgumentNullException(nameof(dtrain));
+
             // create Booster.
             Booster bst = new Booster(parameters, dtrain, dvalid);
 
@@ -595,11 +600,11 @@ namespace LightGBMNet.Train
             double bestScore = double.MaxValue;
             double factorToSmallerBetter = 1.0;
 
-            var metric = parameters.Metric.Metric;
+            var metric = parameters.Objective.Metric;
             if (earlyStoppingRound > 0 && (metric == MetricType.Auc || metric == MetricType.Ndcg || metric == MetricType.Map))
                 factorToSmallerBetter = -1.0;
 
-            const int evalFreq = 50; // FIXME  // parameters.Metric.MetricFreq (default is 1 tho?)
+            int evalFreq = parameters.Objective.MetricFreq;
 
             double validError = double.NaN;
             double trainError = double.NaN;
@@ -612,6 +617,7 @@ namespace LightGBMNet.Train
                 if (earlyStoppingRound > 0)
                 {
                     validError = bst.EvalValid();
+                    validMetrics.Add(iter+1, validError);
                     if (validError * factorToSmallerBetter < bestScore)
                     {
                         bestScore = validError * factorToSmallerBetter;
@@ -625,22 +631,34 @@ namespace LightGBMNet.Train
                     }
                 }
 
-                if (parameters.Common.Verbosity >= VerbosityType.Info && (iter + 1) % evalFreq == 0)
+                if ((iter + 1) % evalFreq == 0)
                 {
                     trainError = bst.EvalTrain();
+                    trainMetrics.Add(iter+1, trainError);
                     if (dvalid != null)
                     {
                         if (earlyStoppingRound == 0)
+                        {
                             validError = bst.EvalValid();
-                        Console.WriteLine($"Eval {iter}, Training Error {trainError}, Validation Error {validError}");
+                            validMetrics.Add(iter+1, validError);
+                        }
+                        if (parameters.Common.Verbosity >= VerbosityType.Info)
+                            Console.WriteLine($"Iters: {iter+1}, Training Metric: {trainError}, Validation Metric: {validError}");
                     }
                 }
             }
+
+            // Add final metrics
+            if (!trainMetrics.ContainsKey(iter))
+                trainMetrics.Add(iter, bst.EvalTrain());
+
+            if (dvalid != null && !validMetrics.ContainsKey(iter))
+                validMetrics.Add(iter, bst.EvalValid());
+
             // Set the BestIteration.
             if (iter != numIteration && earlyStoppingRound > 0)
-            {
                 bst.BestIteration = bestIter + 1;
-            }
+
             return bst;
         }
     }

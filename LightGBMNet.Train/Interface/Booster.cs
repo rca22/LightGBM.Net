@@ -13,26 +13,8 @@ namespace LightGBMNet.Train
     {
         private static ParamsHelper<CommonParameters>    _helperCommon    = new ParamsHelper<CommonParameters>();
         private static ParamsHelper<DatasetParameters>   _helperDataset   = new ParamsHelper<DatasetParameters>();
-        private static ParamsHelper<MetricParameters>    _helperMetric    = new ParamsHelper<MetricParameters>();
         private static ParamsHelper<ObjectiveParameters> _helperObjective = new ParamsHelper<ObjectiveParameters>();
         private static ParamsHelper<LearningParameters>  _helperLearning  = new ParamsHelper<LearningParameters>();
-
-        //private static float secondBiggestFloat  = NextDown(Single.MaxValue);
-        //private static float secondSmallestFloat = NextDown(Single.MinValue);
-
-        //private static unsafe float NextDown(float x)
-        //{
-        //    uint temp = *(uint*)&x;
-        //    temp--;
-        //    return *(float*)&temp;
-        //}
-        //
-        //private static unsafe float NextUp(float x)
-        //{
-        //    uint temp = *(uint*)&x;
-        //    temp++;
-        //    return *(float*)&temp;
-        //}
 
         private static unsafe double NextDown(double x)
         {
@@ -681,7 +663,6 @@ namespace LightGBMNet.Train
             var p = new Parameters {
                 Common = _helperCommon.FromParameters(prms),
                 Dataset = _helperDataset.FromParameters(prms),
-                Metric = _helperMetric.FromParameters(prms),
                 Objective = _helperObjective.FromParameters(prms),
                 Learning = _helperLearning.FromParameters(prms)
                 };

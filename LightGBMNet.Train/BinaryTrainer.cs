@@ -13,12 +13,12 @@ namespace LightGBMNet.Train
     {
         public override PredictionKind PredictionKind => PredictionKind.BinaryClassification;
 
-        public BinaryTrainer(LearningParameters lp, ObjectiveParameters op, MetricParameters mp) : base(lp, op, mp)
+        public BinaryTrainer(LearningParameters lp, ObjectiveParameters op) : base(lp, op)
         {
-            if (lp.Objective != ObjectiveType.Binary)
+            if (op.Objective != ObjectiveType.Binary)
                 throw new Exception("Require Objective == ObjectiveType.Binary");
-            if (mp.Metric == MetricType.DefaultMetric)
-                mp.Metric = MetricType.BinaryLogLoss;
+            if (op.Metric == MetricType.DefaultMetric)
+                op.Metric = MetricType.BinaryLogLoss;
         }
 
         private protected override IPredictorWithFeatureWeights<double> CreatePredictor()
