@@ -359,7 +359,7 @@ namespace LightGBMNet.Train.Test
                             else
                                 throw new Exception(String.Format("Unhandled parameter type {0}", typ));
                             var curr = prop.GetValue(src);
-                            modified = StructuralComparisons.StructuralComparer.Compare(prev, curr) != 0;
+                            modified = !Equal(prev, curr);
                         }
                         catch (System.Reflection.TargetInvocationException e)
                         {
@@ -369,6 +369,27 @@ namespace LightGBMNet.Train.Test
                     }
                 }
             }
+        }
+
+        internal static bool Equal(object x, object y)
+        {
+            if (x == null && y == null) return true;
+            if (x == null || y == null) return false;
+            if (x.GetType() != y.GetType()) return false;
+            if (x.GetType().IsArray) return EqualArrays((Array)x, (Array)x);
+            return x.Equals(y);
+        }
+
+        internal static bool EqualArrays(Array x, Array y)
+        {
+            bool ok = x.Rank == y.Rank && x.Length == y.Length;
+            int i = 0;
+            while (ok && i < x.Length)
+            {
+                ok = x.GetValue(i).Equals(y.GetValue(i));
+                i++;
+            }
+            return ok;
         }
 
         internal static Array CloneArray(Array src)

@@ -14,6 +14,7 @@
     <PackageProjectUrl></PackageProjectUrl>
     <RepositoryUrl>https://github.com/rca22/LightGBM.Net</RepositoryUrl>
     <PackageTags>LightGBM</PackageTags>
+    <Version>1.0.1</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -37,30 +38,25 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <None Include="..\native\Release\lib_lightgbm.dll" Pack="true" PackagePath="build\x64">
+    <None Include="..\native\Release\lib_lightgbm.dll" LinkBase="x64" Pack="true" PackagePath="build\x64">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Visible>false</Visible>
     </None>
-    <None Include="..\native\Release\lightgbm.exe" Pack="true" PackagePath="build\x64">
+    <None Include="..\native\Release\lightgbm.exe" LinkBase="x64" Pack="true" PackagePath="build\x64">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Visible>false</Visible>
     </None>
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <None Include="..\native\Debug\lib_lightgbm.dll" Pack="true" PackagePath="build\x64">
+    <None Include="..\native\Debug\lib_lightgbm.dll" LinkBase="x64" Pack="true" PackagePath="build\x64">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Visible>false</Visible>
     </None>
-    <None Include="..\native\Debug\lightgbm.exe" Pack="true" PackagePath="build\x64">
+    <None Include="..\native\Debug\lightgbm.exe" LinkBase="x64" Pack="true" PackagePath="build\x64">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Visible>false</Visible>
     </None>
   </ItemGroup>
   
   <ItemGroup>
     <None Include="LightGBMNet.Train.targets" Pack="true" PackagePath="build">
-      <Visible>false</Visible>
     </None>
   </ItemGroup>
   

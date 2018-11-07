@@ -66,7 +66,7 @@ namespace LightGBMNet.Train
         //    }
         //}
 
-        private const string DllName = "lib_lightgbm";
+        private const string DllName = @"x64\lib_lightgbm";
 
         // The functions below are presented for simplicity in the order in which they appear in the file
         // https://github.com/Microsoft/LightGBM/blob/master/include/LightGBM/c_api.h

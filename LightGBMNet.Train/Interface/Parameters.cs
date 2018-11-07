@@ -694,10 +694,31 @@ namespace LightGBMNet.Train
             }
         }
 
+        private static bool Equal(object x, object y)
+        {
+            if (x == null && y == null) return true;
+            if (x == null || y == null) return false;
+            if (x.GetType() != y.GetType()) return false;
+            if (x.GetType().IsArray) return EqualArrays((Array)x, (Array)x);
+            return x.Equals(y);
+        }
+
+        private static bool EqualArrays(Array x, Array y)
+        {
+            bool ok = x.Rank == y.Rank && x.Length == y.Length;
+            int i = 0;
+            while (ok && i < x.Length)
+            {
+                ok = x.GetValue(i).Equals(y.GetValue(i));
+                i++;
+            }
+            return ok;
+        }
+
         public bool Equal(T x, T y)
         {
             return _propToArgNameAndDefault.Keys.All(prop =>
-                StructuralComparisons.StructuralComparer.Compare(prop.GetValue(x), prop.GetValue(y)) == 0
+                Equal(prop.GetValue(x), prop.GetValue(y))
                 );
         }
 

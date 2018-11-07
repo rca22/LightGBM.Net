@@ -9,6 +9,7 @@
     <Description>Pure .NET implementation of LightGBM trees</Description>
     <RepositoryUrl>https://github.com/rca22/LightGBM.Net</RepositoryUrl>
     <PackageTags>LightGBM</PackageTags>
+    <Version>1.0.1</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
