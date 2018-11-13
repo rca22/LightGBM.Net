@@ -4,13 +4,12 @@
 
 using System;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace LightGBMNet.Tree
 {
     using TScalarPredictor = IPredictorWithFeatureWeights<double>;
 
-    public sealed class OvaPredictor : IPredictorWithFeatureWeights<VBuffer<double>>
+    public sealed class OvaPredictor : IPredictorWithFeatureWeights<double []>
     {
 
         public TScalarPredictor[] Predictors { get; }
@@ -31,12 +30,17 @@ namespace LightGBMNet.Tree
             IsSoftMax = isSoftMax;
             Predictors = predictors;
         }
-        
-        public int MaxNumTrees => Predictors.Select(x => x.MaxNumTrees).Max();
-        public void SetMaxNumTrees(int numTrees)
+
+        public int MaxNumTrees
         {
-            foreach (var p in Predictors)
-                p.SetMaxNumTrees(numTrees);
+            get => Predictors.Select(x => x.MaxNumTrees).Max();
+            set { foreach (var p in Predictors) p.MaxNumTrees = value; }
+        }
+
+        public int MaxThreads
+        {
+            get => Predictors[0].MaxThreads;
+            set { foreach (var p in Predictors) p.MaxThreads = value; }
         }
 
         public FeatureToGainMap GetFeatureWeights(bool normalise = false, bool splits = false)
@@ -52,31 +56,27 @@ namespace LightGBMNet.Tree
             if (normalise)
             {
                 foreach (var k in gainMap.Keys.ToList())
-                    gainMap[k] /= gainMap[k] / numTrees;
+                    gainMap[k] = gainMap[k] / numTrees;
             }
             return gainMap;            
         }
 
-        public void GetOutput(ref VBuffer<float> src, ref VBuffer<double> dst)
+        public void GetOutput(ref VBuffer<float> src, ref double [] dst)
         {
-            var values = dst.Values;
-            if ((values?.Length ?? 0) < Predictors.Length)
-                values = new double[Predictors.Length];
+            if ((dst?.Length ?? 0) < Predictors.Length)
+                dst = new double[Predictors.Length];
 
-#if DEBUG
             for(var i=0; i < Predictors.Length; i++)
-                Predictors[i].GetOutput(ref src, ref values[i]);
-#else
-            var tmp = src;
-            Parallel.For(0, Predictors.Length, i => Predictors[i].GetOutput(ref tmp, ref values[i]));
-#endif
+                Predictors[i].GetOutput(ref src, ref dst[i]);
+
+            // note: parallelisation of eval moved to individual predictors
+            //var tmp = src;
+            //Parallel.For(0, Predictors.Length, i => Predictors[i].GetOutput(ref tmp, ref values[i]));
 
             if (IsSoftMax)
-                Softmax(values, Predictors.Length);
+                Softmax(dst, Predictors.Length);
             else
-                Normalize(values, Predictors.Length);
-
-            dst = new VBuffer<double>(Predictors.Length, values, dst.Indices);
+                Normalize(dst, Predictors.Length);
         }
 
         private static void Normalize(double[] output, int count)

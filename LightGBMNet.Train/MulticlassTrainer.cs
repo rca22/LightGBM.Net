@@ -9,7 +9,7 @@ using LightGBMNet.Tree;
 
 namespace LightGBMNet.Train
 {
-    public sealed class MulticlassTrainer : TrainerBase<VBuffer<double>>
+    public sealed class MulticlassTrainer : TrainerBase<double []>
     {
         public override PredictionKind PredictionKind => PredictionKind.MultiClassClassification;
 
@@ -43,7 +43,7 @@ namespace LightGBMNet.Train
             return new BinaryPredictor(GetBinaryEnsemble(classID), FeatureCount, AverageOutput);
         }
 
-        private protected override IPredictorWithFeatureWeights<VBuffer<double>> CreatePredictor()
+        private protected override IPredictorWithFeatureWeights<double []> CreatePredictor()
         {
             var numClass = Objective.NumClass;
             if (TrainedEnsemble.NumTrees % numClass != 0)

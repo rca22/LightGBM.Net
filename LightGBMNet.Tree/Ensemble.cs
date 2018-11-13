@@ -6,6 +6,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace LightGBMNet.Tree
 {
@@ -17,6 +19,50 @@ namespace LightGBMNet.Tree
         public IEnumerable<RegressionTree> Trees => _trees;
 
         public int NumTrees => _trees.Count;
+
+        private int _maxThreads = 1;
+        public int MaxThreads
+        {
+            get => _maxThreads;
+            set {
+                    if (value <= 0) throw new ArgumentException(nameof(MaxThreads), "Must be positive");
+                    _maxThreads = value;
+                }
+        }
+
+        // cached calculation of groups of ensemble indices calculated by each thread
+        private int _groupMaxThreads = 1;
+        private int _groupNumTrees = 0;
+        private (int, int) [] _groups = null;
+
+        private void SetGroups()
+        {
+            // _groups calculation already cached?
+            if (_groupMaxThreads == MaxThreads && _groupNumTrees == NumTrees)
+                return;
+
+            if (_maxThreads == 1)
+            {
+                _groups = null;
+            }
+            else
+            {
+                var numGroups = Math.Min(NumTrees, MaxThreads);
+                var per = Math.DivRem(NumTrees, numGroups, out var stub);
+                _groups = new (int, int)[numGroups];
+                var idx0 = 0;
+                for (var i=0; i < _groups.Length; i++)
+                {
+                    var size = (i < stub) ? per + 1 : per;
+                    var idx1 = idx0 + size;
+                    _groups[i] = (idx0, idx1);
+                    idx0 = idx1;
+                }
+                Debug.Assert(idx0 == NumTrees);
+            }
+            _groupMaxThreads = MaxThreads;
+            _groupNumTrees = NumTrees;
+        }
 
         public Ensemble()
         {
@@ -30,6 +76,7 @@ namespace LightGBMNet.Tree
             _trees = new List<RegressionTree>(numTrees);
             for (int t = 0; t < numTrees; ++t)
                 AddTree(RegressionTree.Load(reader));
+            MaxThreads = reader.ReadInt32();
         }
 
         public void Save(BinaryWriter writer)
@@ -37,6 +84,7 @@ namespace LightGBMNet.Tree
             writer.Write(NumTrees);
             foreach (RegressionTree tree in Trees)
                 tree.Save(writer);
+            writer.Write(MaxThreads);
         }
 
         public void AddTree(RegressionTree tree) => _trees.Add(tree);
@@ -47,14 +95,33 @@ namespace LightGBMNet.Tree
 
         public double GetOutput(ref VBuffer<float> feat)
         {
-            double output = 0.0;
-            for (int h = 0; h < NumTrees; h++)
+            SetGroups();
+
+            double result = 0.0;
+
+            if (_maxThreads > 1)
             {
-                double x = _trees[h].GetOutput(ref feat);
-              //Console.WriteLine($"{h}: {x}");
-                output += x;
+                var featcopy = feat;
+                Parallel.ForEach(_groups, group =>
+                {
+                    double output = 0.0;
+                    for (int h = group.Item1; h < group.Item2; h++)
+                        output += _trees[h].GetOutput(ref featcopy);
+
+                    lock (this)
+                    {
+                        result += output;
+                    }
+                }
+                );
             }
-            return output;
+            else
+            {
+                for (int h = 0; h < NumTrees; h++)
+                    result += _trees[h].GetOutput(ref feat);
+            }
+
+            return result;
         }
 
     }

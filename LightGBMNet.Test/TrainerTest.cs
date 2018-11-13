@@ -224,6 +224,7 @@ namespace LightGBMNet.Train.Test
                     using (var trainer = new BinaryTrainer(pms.Learning, pms.Objective))
                     {
                         var model = trainer.Train(datasets);
+                        model.MaxThreads = rand.Next(1, Environment.ProcessorCount);
 
                         CalibratedPredictor model2 = null;
                         using (var ms = new System.IO.MemoryStream())
@@ -246,7 +247,7 @@ namespace LightGBMNet.Train.Test
 
                             double output2 = 0;
                             model2.GetOutput(ref input, ref output2);
-                            Assert.Equal(output, output2);
+                            Assert.True(Math.Abs(output - output2) / (1 + Math.Abs(output)) <= 1e-6);
 
                             var output3 = trainer.Evaluate(Booster.PredictType.Normal, row);
                             Assert.Single(output3);
@@ -297,6 +298,7 @@ namespace LightGBMNet.Train.Test
                         //trainer.ToCommandLineFiles(datasets);
 
                         var model = trainer.Train(datasets);
+                        model.MaxThreads = rand.Next(1, Environment.ProcessorCount);
 
                         OvaPredictor model2 = null;
                         using (var ms = new System.IO.MemoryStream())
@@ -305,7 +307,7 @@ namespace LightGBMNet.Train.Test
                         {
                             PredictorPersist.Save(model, writer);
                             ms.Position = 0;
-                            model2 = PredictorPersist.Load<VBuffer<double>>(reader) as OvaPredictor;
+                            model2 = PredictorPersist.Load<double []>(reader) as OvaPredictor;
                             Assert.Equal(ms.Position, ms.Length);
                         }
 
@@ -313,24 +315,23 @@ namespace LightGBMNet.Train.Test
                         {
                             var row = trainData.Features[irow];
                             // check evaluation of managed model
-                            VBuffer<double> output = default;
+                            double [] output = null;
                             var input = new VBuffer<float>(row.Length, row);
                             model.GetOutput(ref input, ref output);
-                            foreach (var p in output.Values)
+                            foreach (var p in output)
                             {
                                 Assert.True(p >= 0);
                                 Assert.True(p <= 1);
                             }
-                            Assert.Equal(1, output.Values.Sum(), 5);
-                            Assert.Equal(output.Values.Length, pms.Objective.NumClass);
+                            Assert.Equal(1, output.Sum(), 5);
+                            Assert.Equal(output.Length, pms.Objective.NumClass);
 
                             // compare with output of serialised model
-                            VBuffer<double> output2 = default;
+                            double [] output2 = null;
                             model2.GetOutput(ref input, ref output2);
-                            Assert.Equal(output.Count, output2.Count);
                             Assert.Equal(output.Length, output2.Length);
-                            Assert.Equal(output.Values, output2.Values);
-                            Assert.Equal(output.Indices, output2.Indices);
+                            for(var i=0; i<output.Length; i++)
+                                Assert.True(Math.Abs(output[i] - output2[i]) / (1 + Math.Abs(output[i])) <= 1e-6);
 
                             // check raw scores against native booster object
                             var rawscores = (model as OvaPredictor).Predictors.Select(p => 
@@ -363,7 +364,7 @@ namespace LightGBMNet.Train.Test
                             }
                             Assert.Equal(pms.Objective.NumClass, output3.Length);
                             for (var i = 0; i < output3.Length; i++)
-                                Assert.Equal(output.Values[i], output3[i], 3);
+                                Assert.Equal(output[i], output3[i], 3);
                         }
 
                         var gains = model.GetFeatureWeights(rand.Next(2)==0, rand.Next(2) == 0);
@@ -434,10 +435,11 @@ namespace LightGBMNet.Train.Test
                     using (var datasets = new Datasets(pms.Common, pms.Dataset, trainData, validData))
                     using (var trainer = new RegressionTrainer(pms.Learning, pms.Objective))
                     {
-                        if (true)
-                            trainer.ToCommandLineFiles(datasets);
+                        //if (false)
+                        //    trainer.ToCommandLineFiles(datasets);
 
                         var model = trainer.Train(datasets);
+                        model.MaxThreads = rand.Next(1, Environment.ProcessorCount);
 
                         IPredictorWithFeatureWeights<double> model2 = null;
                         using (var ms = new System.IO.MemoryStream())
@@ -459,7 +461,7 @@ namespace LightGBMNet.Train.Test
 
                             double output2 = 0;
                             model2.GetOutput(ref input, ref output2);
-                            Assert.Equal(output, output2);
+                            Assert.True(Math.Abs(output - output2) / (1 + Math.Abs(output)) <= 1e-6);
 
                             var output3 = trainer.Evaluate(Booster.PredictType.Normal, row);
                             Assert.Single(output3);
@@ -528,6 +530,7 @@ namespace LightGBMNet.Train.Test
                     using (var trainer = new RankingTrainer(pms.Learning, pms.Objective))
                     {
                         var model = trainer.Train(datasets);
+                        model.MaxThreads = rand.Next(1, Environment.ProcessorCount);
 
                         RankingPredictor model2 = null;
                         using (var ms = new System.IO.MemoryStream())
@@ -549,7 +552,7 @@ namespace LightGBMNet.Train.Test
 
                             double output2 = 0;
                             model2.GetOutput(ref input, ref output2);
-                            Assert.Equal(output, output2);
+                            Assert.True(Math.Abs(output - output2) / (1 + Math.Abs(output)) <= 1e-6);
 
                             var output3 = trainer.Evaluate(Booster.PredictType.Normal, row);
                             Assert.Single(output3);

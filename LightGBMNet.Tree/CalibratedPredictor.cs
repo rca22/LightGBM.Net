@@ -25,8 +25,16 @@ namespace LightGBMNet.Tree
             Calibrator = calibrator;
         }
         public int NumInputs => SubPredictor.NumInputs;
-        public int MaxNumTrees => SubPredictor.MaxNumTrees;
-        public void SetMaxNumTrees(int numTrees) => SubPredictor.SetMaxNumTrees(numTrees);
+        public int MaxNumTrees {
+            get => SubPredictor.MaxNumTrees;
+            set => SubPredictor.MaxNumTrees = value;
+        }
+
+        public int MaxThreads
+        {
+            get => SubPredictor.MaxThreads;
+            set => SubPredictor.MaxThreads = value;
+        }
 
         public void GetOutput(ref VBuffer<float> features, ref double prob)
         {

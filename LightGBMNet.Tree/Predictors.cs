@@ -50,13 +50,14 @@ namespace LightGBMNet.Tree
     public interface ITreeEnsemble
     {
         /// <summary>
-        /// Returns the maximum number of trees in the underlying tree ensemble
+        /// Get: Returns the maximum number of trees in the underlying tree ensemble
+        /// Set: Reduces the number of trees in the underlying ensemble to at most numTrees trees, removing trees from the end of the ensemble.
         /// </summary>
-        int MaxNumTrees { get; }
+        int MaxNumTrees { get; set; }
         /// <summary>
-        /// Reduces the number of trees in the underlying ensemble to at most numTrees trees, removing trees from the end of the ensemble.
+        /// Maximum number of threads to use when evaluating ensemble.
         /// </summary>
-        void SetMaxNumTrees(int numTrees);
+        int MaxThreads { get; set; }
     }
 
     /// <summary>
@@ -72,18 +73,28 @@ namespace LightGBMNet.Tree
 
         public Ensemble TrainedEnsemble { get; }
         public int NumInputs => NumFeatures;
-        public int MaxNumTrees => TrainedEnsemble.NumTrees;
-        public void SetMaxNumTrees(int numTrees)
+
+        public int MaxNumTrees
         {
-            if (numTrees <= 0)
+            get => TrainedEnsemble.NumTrees;
+            set
             {
-                throw new ArgumentException(nameof(numTrees), "Must be positive");
+                if (value <= 0)
+                {
+                    throw new ArgumentException(nameof(MaxNumTrees), "Must be positive");
+                }
+                else if (value < TrainedEnsemble.NumTrees)
+                {
+                    TrainedEnsemble.RemoveAfter(value);
+                    System.Diagnostics.Debug.Assert(TrainedEnsemble.NumTrees == value);
+                }
             }
-            else if (numTrees < TrainedEnsemble.NumTrees)
-            {
-                TrainedEnsemble.RemoveAfter(numTrees);
-                System.Diagnostics.Debug.Assert(TrainedEnsemble.NumTrees == numTrees);
-            }
+        }
+
+        public int MaxThreads
+        {
+            get => TrainedEnsemble.MaxThreads;
+            set => TrainedEnsemble.MaxThreads = value;
         }
 
         // The total number of features used in training (takes the value of zero if the 
@@ -281,7 +292,7 @@ namespace LightGBMNet.Tree
                 else
                     throw new FormatException("Invalid IPredictorWithFeatureWeights flag");
             }
-            else if (typeof(T) == typeof(VBuffer<double>))
+            else if (typeof(T) == typeof(double []))
             {
                 var isSoftMax = reader.ReadBoolean();
                 var len = reader.ReadInt32();
