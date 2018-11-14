@@ -33,16 +33,18 @@ namespace LightGBMNet.Train
 
         private bool PositiveOutput()
         {
-            return Objective.Objective == ObjectiveType.Poisson ||
-                   Objective.Objective == ObjectiveType.Gamma ||
-                   Objective.Objective == ObjectiveType.Tweedie;
+            return (Objective.Objective == ObjectiveType.Poisson ||
+                    Objective.Objective == ObjectiveType.Gamma ||
+                    Objective.Objective == ObjectiveType.Tweedie) &&
+                   Learning.Boosting != BoostingType.RandomForest;  // Really?
         }
 
         private bool SqrtOutput()
         {
             return Objective.RegSqrt &&
                    Objective.Objective != ObjectiveType.Huber &&
-                   !PositiveOutput();
+                   !PositiveOutput() &&
+                   Learning.Boosting != BoostingType.RandomForest;  // Really?
         }
 
         private protected override IPredictorWithFeatureWeights<double> CreatePredictor()

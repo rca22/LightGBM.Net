@@ -490,7 +490,9 @@ namespace LightGBMNet.Train
 
         }
 
-        public IPredictorWithFeatureWeights<TOutput> Train(Datasets data)
+        public IPredictorWithFeatureWeights<TOutput> Train( Datasets data
+                                                          , Func<int, double> learningRateSchedule = null     // optional: learning rate as a function of iteration (zero-based)
+                                                          )
         {
             // For multi class, the number of labels is required.
             if (!(PredictionKind != PredictionKind.MultiClassClassification || Objective.NumClass > 1))
@@ -502,13 +504,15 @@ namespace LightGBMNet.Train
             Booster = null;
 
             var args = GetParameters(data);
-            Booster = Train(args, data.Training, data.Validation, TrainMetrics, ValidMetrics);
+            Booster = Train(args, data.Training, data.Validation, TrainMetrics, ValidMetrics, learningRateSchedule);
 
             (var model, var argsout) = Booster.GetModel();
             TrainedEnsemble = model;
             FeatureCount = data.Training.NumFeatures;
 
             // check parameter strings
+            if (learningRateSchedule != null)
+                argsout.Learning.LearningRate = args.Learning.LearningRate;
             var strIn  = args.ToString();
             var strOut = argsout.ToString();
             if (strIn != strOut)
@@ -579,6 +583,7 @@ namespace LightGBMNet.Train
                                     , Dataset dvalid
                                     , Dictionary<int, double> trainMetrics
                                     , Dictionary<int, double> validMetrics
+                                    , Func<int, double> learningRateSchedule // optional: learning rate as a function of iteration (zero-based)
                                     )
         {
             if (dtrain == null) throw new ArgumentNullException(nameof(dtrain));
@@ -611,6 +616,12 @@ namespace LightGBMNet.Train
             int iter = 0;
             for (iter = 0; iter < numIteration; ++iter)
             {
+                if (learningRateSchedule != null)
+                {
+                    var learningRate = learningRateSchedule.Invoke(iter);
+                    bst.SetLearningRate(learningRate);
+                }
+
                 if (bst.Update())
                     break;
 

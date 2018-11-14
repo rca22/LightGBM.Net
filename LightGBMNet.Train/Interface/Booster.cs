@@ -143,6 +143,13 @@ namespace LightGBMNet.Train
             return isFinished == 1;
         }
 
+        public void SetLearningRate(double learningRate)
+        {
+            if (learningRate <= 0.0) throw new Exception($"Learning rate must be positive (got {learningRate})");
+            PInvokeException.Check(PInvoke.BoosterResetParameter(Handle, "learning_rate=" + learningRate),
+                                   nameof(PInvoke.BoosterResetParameter));
+        }
+
         public bool UpdateCustom(float[] grad, float[] hess)
         {
             int isFinished = 0;

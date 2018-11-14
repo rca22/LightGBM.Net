@@ -9,10 +9,19 @@ namespace LightGBMNet.Train.Test
 {
     public class TrainerTest
     {
+        private static void Compare(double x, double y)
+        {
+            if (x == y || double.IsNaN(x) && double.IsNaN(y))
+                return;
+
+            if (Math.Abs(x - y) / (1 + Math.Abs(x)) > 1e-6)
+                throw new Exception($"Mismatch {x} vs {y} (error: {Math.Abs(x - y)})");
+        }
+
         private static BoostingType [] boostingTypes =
             new BoostingType[] {
                 BoostingType.GBDT,
-              //BoostingType.RandomForest,  // TODO: wtf
+                BoostingType.RandomForest,  // TODO: wtf
                 BoostingType.Dart,
                 BoostingType.Goss
             };
@@ -218,12 +227,14 @@ namespace LightGBMNet.Train.Test
                 var validData = (pms.Learning.EarlyStoppingRound > 0 || rand.Next(2) == 0) ? CreateRandomDenseClassifyData(rand, 2, ref categorical, pms.Dataset.UseMissing, numColumns) : null;
                 pms.Dataset.CategoricalFeature = categorical.Keys.ToArray();
 
+                var learningRateSchedule = (rand.Next(2) == 0) ? (Func<int, double>)null : (iter => pms.Learning.LearningRate * Math.Pow(0.99, iter));
+
                 try
                 {
                     using (var datasets = new Datasets(pms.Common, pms.Dataset, trainData, validData))
                     using (var trainer = new BinaryTrainer(pms.Learning, pms.Objective))
                     {
-                        var model = trainer.Train(datasets);
+                        var model = trainer.Train(datasets, learningRateSchedule);
                         model.MaxThreads = rand.Next(1, Environment.ProcessorCount);
 
                         CalibratedPredictor model2 = null;
@@ -247,15 +258,22 @@ namespace LightGBMNet.Train.Test
 
                             double output2 = 0;
                             model2.GetOutput(ref input, ref output2);
-                            Assert.True(Math.Abs(output - output2) / (1 + Math.Abs(output)) <= 1e-6);
+                            Compare(output, output2);
+
+                            // check raw score against native booster object
+                            var rawscore = 0.0;
+                            (model as CalibratedPredictor).SubPredictor.GetOutput(ref input, ref rawscore);
+                            var rawscore2 = trainer.Evaluate(Booster.PredictType.RawScore, row);
+                            Assert.Single(rawscore2);
+                            var isRf = (pms.Learning.Boosting == BoostingType.RandomForest);
+                            Compare(isRf ? rawscore * model.MaxNumTrees : rawscore, rawscore2[0]);
 
                             var output3 = trainer.Evaluate(Booster.PredictType.Normal, row);
                             Assert.Single(output3);
-                            if (Math.Abs(output - output3[0]) / (1 + Math.Abs(output)) > 1e-6)
-                            {
-                                Console.WriteLine(trainer.GetModelString());
-                                throw new Exception($"Output mismatch {output} vs {output3[0]} (error: {Math.Abs(output - output3[0])}) input: {String.Join(", ", row)}");
-                            }
+                            Compare(isRf ? rawscore : output, output3[0]);
+
+                            //Console.WriteLine(trainer.GetModelString());
+                            //throw new Exception($"Output mismatch {output} vs {output3[0]} (error: {Math.Abs(output - output3[0])}) input: {String.Join(", ", row)}");
                         }
 
                         var gains = model.GetFeatureWeights(rand.Next(2) == 0, rand.Next(2) == 0);
@@ -288,6 +306,8 @@ namespace LightGBMNet.Train.Test
                 var validData = (pms.Learning.EarlyStoppingRound > 0 || rand.Next(2) == 0) ? CreateRandomDenseClassifyData(rand, pms.Objective.NumClass, ref categorical, pms.Dataset.UseMissing, numColumns) : null;
                 pms.Dataset.CategoricalFeature = categorical.Keys.ToArray();
 
+                var learningRateSchedule = (rand.Next(2) == 0) ? (Func<int, double>)null : (iter => pms.Learning.LearningRate * Math.Pow(0.99, iter));
+
                 //if (test != 1) continue;
 
                 try
@@ -295,9 +315,9 @@ namespace LightGBMNet.Train.Test
                     using (var datasets = new Datasets(pms.Common, pms.Dataset, trainData, validData))
                     using (var trainer = new MulticlassTrainer(pms.Learning, pms.Objective))
                     {
-                        //trainer.ToCommandLineFiles(datasets);
+                        trainer.ToCommandLineFiles(datasets);
 
-                        var model = trainer.Train(datasets);
+                        var model = trainer.Train(datasets, learningRateSchedule);
                         model.MaxThreads = rand.Next(1, Environment.ProcessorCount);
 
                         OvaPredictor model2 = null;
@@ -331,9 +351,10 @@ namespace LightGBMNet.Train.Test
                             model2.GetOutput(ref input, ref output2);
                             Assert.Equal(output.Length, output2.Length);
                             for(var i=0; i<output.Length; i++)
-                                Assert.True(Math.Abs(output[i] - output2[i]) / (1 + Math.Abs(output[i])) <= 1e-6);
+                                Compare(output[i], output2[i]);
 
                             // check raw scores against native booster object
+                            var isRf = (pms.Learning.Boosting == BoostingType.RandomForest);
                             var rawscores = (model as OvaPredictor).Predictors.Select(p => 
                             {
                                 double outputi = 0;
@@ -341,21 +362,22 @@ namespace LightGBMNet.Train.Test
                                     (p as CalibratedPredictor).SubPredictor.GetOutput(ref input, ref outputi);
                                 else
                                     p.GetOutput(ref input, ref outputi);
-                                return outputi;
+                                return (outputi, p.MaxNumTrees);
                             }).ToArray();
                             var rawscores3 = trainer.Evaluate(Booster.PredictType.RawScore, row);
                             Assert.Equal(pms.Objective.NumClass, rawscores.Length);
                             Assert.Equal(pms.Objective.NumClass, rawscores3.Length);
                             for (var i = 0; i < rawscores.Length; i++)
-                                if (Math.Abs(rawscores[i] - rawscores3[i]) / (1 + Math.Abs(rawscores[i])) > 1e-6)
-                                {
-                                    Console.WriteLine(trainer.GetModelString());
-                                    throw new Exception($"Raw score mismatch at row {irow}: {rawscores[i]} vs {rawscores3[i]} (error: {Math.Abs(rawscores[i] - rawscores3[i])}) input: {String.Join(", ", row)}");
-                                }
+                            {
+                                (var rawscore, var numTrees) = rawscores[i];
+                                Compare(isRf ? rawscore * numTrees : rawscore, rawscores3[i]);
+                            }
+                                //Console.WriteLine(trainer.GetModelString());
+                                //throw new Exception($"Raw score mismatch at row {irow}: {rawscores[i]} vs {rawscores3[i]} (error: {Math.Abs(rawscores[i] - rawscores3[i])}) input: {String.Join(", ", row)}");
 
                             // check probabilities against native booster object
                             var output3 = trainer.Evaluate(Booster.PredictType.Normal, row);
-                            if (objective == ObjectiveType.MultiClassOva)
+                            if (objective == ObjectiveType.MultiClassOva && !isRf)
                             {
                                 // booster object doesn't return normalised probabilities for OVA
                                 var sum = output3.Sum();
@@ -364,7 +386,15 @@ namespace LightGBMNet.Train.Test
                             }
                             Assert.Equal(pms.Objective.NumClass, output3.Length);
                             for (var i = 0; i < output3.Length; i++)
-                                Assert.Equal(output[i], output3[i], 3);
+                            {
+                                if (isRf)
+                                {
+                                    (var rawscore, var numTrees) = rawscores[i];
+                                    Assert.Equal(rawscore, output3[i], 3);
+                                }
+                                else
+                                    Assert.Equal(output[i], output3[i], 3);
+                            }
                         }
 
                         var gains = model.GetFeatureWeights(rand.Next(2)==0, rand.Next(2) == 0);
@@ -406,6 +436,8 @@ namespace LightGBMNet.Train.Test
                 var pms = GenerateParameters(rand, objective, numColumns);
                 if (rand.Next(2) == 0) pms.Objective.RegSqrt = true;
 
+                var learningRateSchedule = (rand.Next(2) == 0) ? (Func<int, double>)null : (iter => pms.Learning.LearningRate * Math.Pow(0.99, iter));
+
                 try
                 {
                     Dictionary<int, int> categorical = null;
@@ -435,10 +467,10 @@ namespace LightGBMNet.Train.Test
                     using (var datasets = new Datasets(pms.Common, pms.Dataset, trainData, validData))
                     using (var trainer = new RegressionTrainer(pms.Learning, pms.Objective))
                     {
-                        //if (false)
+                        //if (true)
                         //    trainer.ToCommandLineFiles(datasets);
 
-                        var model = trainer.Train(datasets);
+                        var model = trainer.Train(datasets, learningRateSchedule);
                         model.MaxThreads = rand.Next(1, Environment.ProcessorCount);
 
                         IPredictorWithFeatureWeights<double> model2 = null;
@@ -461,15 +493,13 @@ namespace LightGBMNet.Train.Test
 
                             double output2 = 0;
                             model2.GetOutput(ref input, ref output2);
-                            Assert.True(Math.Abs(output - output2) / (1 + Math.Abs(output)) <= 1e-6);
+                            Compare(output, output2);
 
                             var output3 = trainer.Evaluate(Booster.PredictType.Normal, row);
                             Assert.Single(output3);
-                            if (Math.Abs(output - output3[0]) / (1 + Math.Abs(output)) > 1e-6)
-                            {
-                                Console.WriteLine(trainer.GetModelString());
-                                throw new Exception($"Output mismatch {output} vs {output3[0]} (error: {Math.Abs(output - output3[0])}) input: {String.Join(", ", row)}");
-                            }
+                            Compare(output, output3[0]);
+                            //Console.WriteLine(trainer.GetModelString());
+                            //throw new Exception($"Output mismatch {output} vs {output3[0]} (error: {Math.Abs(output - output3[0])}) input: {String.Join(", ", row)}");
                         }
 
                         var gains = model.GetFeatureWeights(rand.Next(2) == 0, rand.Next(2) == 0);
@@ -524,12 +554,14 @@ namespace LightGBMNet.Train.Test
                 if (validData != null) validData.Groups = GenGroups(rand, validData.NumRows);
                 pms.Dataset.CategoricalFeature = categorical.Keys.ToArray();
 
+                var learningRateSchedule = (rand.Next(2) == 0) ? (Func<int, double>)null : (iter => pms.Learning.LearningRate * Math.Pow(0.99, iter));
+
                 try
                 {
                     using (var datasets = new Datasets(pms.Common, pms.Dataset, trainData, validData))
                     using (var trainer = new RankingTrainer(pms.Learning, pms.Objective))
                     {
-                        var model = trainer.Train(datasets);
+                        var model = trainer.Train(datasets, learningRateSchedule);
                         model.MaxThreads = rand.Next(1, Environment.ProcessorCount);
 
                         RankingPredictor model2 = null;
@@ -552,15 +584,13 @@ namespace LightGBMNet.Train.Test
 
                             double output2 = 0;
                             model2.GetOutput(ref input, ref output2);
-                            Assert.True(Math.Abs(output - output2) / (1 + Math.Abs(output)) <= 1e-6);
+                            Compare(output, output2);
 
                             var output3 = trainer.Evaluate(Booster.PredictType.Normal, row);
                             Assert.Single(output3);
-                            if (Math.Abs(output - output3[0]) / (1 + Math.Abs(output)) > 1e-6)
-                            {
-                                Console.WriteLine(trainer.GetModelString());
-                                throw new Exception($"Output mismatch {output} vs {output3[0]} (error: {Math.Abs(output - output3[0])}) input: {String.Join(", ", row)}");
-                            }
+                            Compare(output, output3[0]);
+                            //Console.WriteLine(trainer.GetModelString());
+                            //throw new Exception($"Output mismatch {output} vs {output3[0]} (error: {Math.Abs(output - output3[0])}) input: {String.Join(", ", row)}");
                         }
 
                         var gains = model.GetFeatureWeights(rand.Next(2) == 0, rand.Next(2) == 0);

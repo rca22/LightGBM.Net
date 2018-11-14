@@ -34,6 +34,7 @@ namespace LightGBMNet.Tree
         private int _groupMaxThreads = 1;
         private int _groupNumTrees = 0;
         private (int, int) [] _groups = null;
+        private double[] _groupVals = null;
 
         private void SetGroups()
         {
@@ -44,12 +45,14 @@ namespace LightGBMNet.Tree
             if (_maxThreads == 1)
             {
                 _groups = null;
+                _groupVals = null;
             }
             else
             {
                 var numGroups = Math.Min(NumTrees, MaxThreads);
                 var per = Math.DivRem(NumTrees, numGroups, out var stub);
                 _groups = new (int, int)[numGroups];
+                _groupVals = new double[numGroups];
                 var idx0 = 0;
                 for (var i=0; i < _groups.Length; i++)
                 {
@@ -102,18 +105,16 @@ namespace LightGBMNet.Tree
             if (_maxThreads > 1)
             {
                 var featcopy = feat;
-                Parallel.ForEach(_groups, group =>
+                Parallel.For(0, _groups.Length, i =>
                 {
                     double output = 0.0;
-                    for (int h = group.Item1; h < group.Item2; h++)
+                    (int lo, int hi) = _groups[i];
+                    for (int h = lo; h < hi; h++)
                         output += _trees[h].GetOutput(ref featcopy);
-
-                    lock (this)
-                    {
-                        result += output;
-                    }
+                    _groupVals[i] = output;
                 }
                 );
+                result = _groupVals.Sum();
             }
             else
             {
