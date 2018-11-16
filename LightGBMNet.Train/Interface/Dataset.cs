@@ -495,6 +495,7 @@ namespace LightGBMNet.Train
                                     nameof(PInvoke.DatasetGetField));
             if (typ != PInvoke.CApiDType.Float64)
                 throw new Exception(String.Format("Field {0} is of type {1}", fieldName, typ));
+            if (ptr == IntPtr.Zero) return null;
             var rslts = new double[outLen];
             Marshal.Copy(ptr, rslts, 0, outLen);
             return rslts;
@@ -514,6 +515,7 @@ namespace LightGBMNet.Train
                                     nameof(PInvoke.DatasetGetField));
             if (typ != PInvoke.CApiDType.Int32)
                 throw new Exception(String.Format("Field {0} is of type {1}", fieldName, typ));
+            if (ptr == IntPtr.Zero) return null;
             var rslts = new int[outLen];
             Marshal.Copy(ptr, rslts, 0, outLen);
             return rslts;
@@ -521,7 +523,7 @@ namespace LightGBMNet.Train
 
         public int[] GetGroups()
         {
-            return GetInt32Field("groups");
+            return GetInt32Field("group");
         }
 
         #region IDisposable

@@ -803,10 +803,6 @@ namespace LightGBMNet.Train
     {
         #region Properties
 
-        // Not a true parameter, just controls size of batches when copying data across to Dataset (TODO: deprecate)
-        [Obsolete]
-        public int BatchSize => 1 << 20;
-
         private int _maxBin = 255;
         /// <summary>
         /// Max number of bins that feature values will be bucketed in.

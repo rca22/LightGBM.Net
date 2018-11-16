@@ -3,8 +3,6 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
-using System.IO;
-using LightGBMNet.Train;
 using LightGBMNet.Tree;
 
 namespace LightGBMNet.Train
@@ -31,7 +29,7 @@ namespace LightGBMNet.Train
             Ensemble res = new Ensemble();
             for (int i = classID; i < TrainedEnsemble.NumTrees; i += numClass)
             {
-                // Ignore dummy trees.
+                // Ignore dummy trees
                 if (TrainedEnsemble.GetTreeAt(i).NumLeaves > 1)
                     res.AddTree(TrainedEnsemble.GetTreeAt(i));
             }

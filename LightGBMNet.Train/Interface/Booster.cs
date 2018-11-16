@@ -243,7 +243,7 @@ namespace LightGBMNet.Train
 
         public unsafe string GetModelString()
         {
-            long bufLen = 2L << 15;
+            long bufLen = 2L << 16;
             byte[] buffer = new byte[bufLen];
             long size = 0;
             fixed (byte* ptr = buffer)
@@ -331,7 +331,7 @@ namespace LightGBMNet.Train
                     // need to be careful here to generate a value that is genuinely LEQ for left branch, and GT for right branch!
                     var t = threshold[i];
                     if (GetIsDefaultLeft(decisionType[i]))
-                        ret[i] = t; //  (t == 0.0f) ? -1.0f : ((t > 0) ? NextDown(t) : NextUp(t)); 
+                        ret[i] = t;
                     else
                         ret[i] = (t == 0.0f) ? +1.0f : ((t > 0) ? NextUp(t) : NextDown(t));  // TODO: INFINITY!!!
                 }
@@ -546,7 +546,7 @@ namespace LightGBMNet.Train
         }
 
 
-        public (Tree.Ensemble, Parameters) GetModel() // int[] categoricalFeatureBoudaries)
+        public (Tree.Ensemble, Parameters) GetModel()
         {
             Tree.Ensemble res = new Tree.Ensemble();
             string modelString = GetModelString();
@@ -573,36 +573,22 @@ namespace LightGBMNet.Train
                         var leftChild = Str2IntArray(kvPairs["left_child"], ' ');
                         var rightChild = Str2IntArray(kvPairs["right_child"], ' ');
                         var splitFeature = Str2IntArray(kvPairs["split_feature"], ' ');
-                        var thresholdDbl = Str2DoubleArray(kvPairs["threshold"], ' ');
+                        var threshold = Str2DoubleArray(kvPairs["threshold"], ' ');
                         var splitGain = Str2DoubleArray(kvPairs["split_gain"], ' ');
                         var leafOutput = Str2DoubleArray(kvPairs["leaf_value"], ' ');
                         var decisionType = Str2UIntArray(kvPairs["decision_type"], ' ');
 
-                        //var thresholdSgl = new float[thresholdDbl.Length];
-                        //for (var j = 0; j < thresholdDbl.Length; j++)
-                        //{
-                        //    // See 'AvoidInf' in lightgbm source
-                        //    var t = thresholdDbl[j];
-                        //    if (t == 1e300)
-                        //        thresholdSgl[j] = secondBiggestFloat;
-                        //    else if (t == -1e300)
-                        //        thresholdSgl[j] = secondSmallestFloat;
-                        //    else
-                        //        thresholdSgl[j] = (float)t;
-                        //}
-
-                        for (var j = 0; j < thresholdDbl.Length; j++)
+                        for (var j = 0; j < threshold.Length; j++)
                         {
                             // See 'AvoidInf' in lightgbm source
-                            var t = thresholdDbl[j];
+                            var t = threshold[j];
                             if (t == 1e300)
-                                thresholdDbl[j] = double.PositiveInfinity;
+                                threshold[j] = double.PositiveInfinity;
                             else if (t == -1e300)
-                                thresholdDbl[j] = double.NegativeInfinity;
+                                threshold[j] = double.NegativeInfinity;
                         }
 
-                        //var defaultValue = GetDefaultValue(thresholdSgl, decisionType);
-                        var defaultValue = GetDefaultValue(thresholdDbl, decisionType);
+                        var defaultValue = GetDefaultValue(threshold, decisionType);
 
                         var categoricalSplit = new bool[numLeaves - 1];
                         var catBoundaries = Array.Empty<int>();
@@ -621,7 +607,7 @@ namespace LightGBMNet.Train
                                         numLeaves,
                                         splitFeature,
                                         splitGain,
-                                        thresholdDbl, //thresholdSgl,
+                                        threshold,
                                         defaultValue,
                                         leftChild,
                                         rightChild,
@@ -633,24 +619,21 @@ namespace LightGBMNet.Train
                     }
                     else
                     {
-                        //var tree = new Tree.RegressionTree(2);
+                        // always need to add tree, otherwise multiclass will be wrong
                         var leafOutput = Str2DoubleArray(kvPairs["leaf_value"], ' ');
-                        //if (leafOutput[0] != 0) // still need to add tree, e.g., for multiclass
-                        {
-                            var tree = Tree.RegressionTree.Create(
-                                        2,
-                                        new int[] { 0 },
-                                        new double[] { 0 },
-                                        new double[] { 0 },
-                                        new double[] { 0 },
-                                        new int[] { -1 },
-                                        new int[] { -2 },
-                                        new double[] { leafOutput[0], leafOutput[0] },
-                                        new int[] { },
-                                        new uint[] { },
-                                        new bool[] { false });
-                            res.AddTree(tree);
-                        }
+                        var tree = Tree.RegressionTree.Create(
+                                    2,
+                                    new int[] { 0 },
+                                    new double[] { 0 },
+                                    new double[] { 0 },
+                                    new double[] { 0 },
+                                    new int[] { -1 },
+                                    new int[] { -2 },
+                                    new double[] { leafOutput[0], leafOutput[0] },
+                                    new int[] { },
+                                    new uint[] { },
+                                    new bool[] { false });
+                        res.AddTree(tree);
                     }
                 }
                 else

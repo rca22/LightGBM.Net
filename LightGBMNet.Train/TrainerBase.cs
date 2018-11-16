@@ -4,14 +4,13 @@
 
 using System;
 using System.IO;
-using System.Diagnostics;
 using System.Linq;
 using System.Collections.Generic;
 using LightGBMNet.Tree;
 
 namespace LightGBMNet.Train
-{
-    
+{    
+    // TODO: add sparse version
     public class DataDense
     {
         /// <summary>
@@ -90,20 +89,8 @@ namespace LightGBMNet.Train
             if (trainData == null) throw new ArgumentNullException(nameof(trainData));
             trainData.Validate();
 
-            // TODO
-          //if (Args.Learning.Objective == ObjectiveType.LambdaRank && trainData.Groups == null)
-          //    throw new Exception("Require Groups data for ObjectiveType.LambdaRank");
-
             // TODO: not parallelised, better off to concat data and pass in as a single matrix?
-            Dataset dtrain = CreateDatasetFromSamplingData2(trainData, Common, Dataset);
-
-            // NOTE: does not respect BinConstructSampleCnt parameter!
-            // Dataset dtrain = CreateDatasetFromSamplingData(trainData, Args.Common, Args.Dataset);
-            // Push rows into dataset.
-            // LoadDataset(trainData, dtrain, Args.Dataset.BatchSize);
-
-            // Some checks.
-            //CheckAndUpdateParametersBeforeTraining(ch, trainData, labels, groups);
+            Dataset dtrain = CreateDatasetFromSamplingData(trainData, Common, Dataset);
             return dtrain;
         }
 
@@ -111,14 +98,6 @@ namespace LightGBMNet.Train
         {
             if (validData == null) throw new ArgumentNullException(nameof(validData));
             validData.Validate();
-
-            // TODO
-            //if (Args.Learning.Objective == ObjectiveType.LambdaRank && validData.Groups == null)
-            //    throw new Exception("Require Groups data for ObjectiveType.LambdaRank");
-
-            //Dataset dvalid = new Dataset(dtrain, validData.NumRows, validData.Labels, validData.Weights, validData.Groups);
-            // Push rows into dataset.
-            //LoadDataset(validData, dvalid, Args.Dataset.BatchSize);
 
             var dvalid = new Dataset( validData.Features
                                     , validData.NumColumns
@@ -132,158 +111,10 @@ namespace LightGBMNet.Train
             return dvalid;
         }
 
-        // Maximum size of one-dimensional array.
-        // See: https://msdn.microsoft.com/en-us/library/hh285054(v=vs.110).aspx
-        private const int ArrayMaxSize = 0X7FEFFFFF;
-
-        /// <summary>
-        /// Resizes the array if necessary, to ensure that it has at least <paramref name="min"/> elements.
-        /// </summary>
-        /// <param name="array">The array to resize. Can be null.</param>
-        /// <param name="min">The minimum number of items the new array must have.</param>
-        /// <param name="keepOld">True means that the old array is preserved, if possible (Array.Resize is called). False
-        /// means that a new array will be allocated.
-        /// </param>
-        /// <returns>The new size, that is no less than <paramref name="min"/>.</returns>
-        [Obsolete]
-        private static int EnsureSize<T>(ref T[] array, int min, bool keepOld = true)
-        {
-            return EnsureSize(ref array, min, ArrayMaxSize, keepOld);
-        }
-
-        /// <summary>
-        /// Resizes the array if necessary, to ensure that it has at least <paramref name="min"/> and at most <paramref name="max"/> elements.
-        /// </summary>
-        /// <param name="array">The array to resize. Can be null.</param>
-        /// <param name="min">The minimum number of items the new array must have.</param>
-        /// <param name="max">The maximum number of items the new array can have.</param>
-        /// <param name="keepOld">True means that the old array is preserved, if possible (Array.Resize is called). False
-        /// means that a new array will be allocated.
-        /// </param>
-        /// <returns>The new size, that is no less than <paramref name="min"/> and no more that <paramref name="max"/>.</returns>
-        [Obsolete]
-        private static int EnsureSize<T>(ref T[] array, int min, int max, bool keepOld = true)
-        {
-            if (!(min <= max)) throw new ArgumentException(nameof(max), "min must not exceed max");
-            // This code adapted from the private method EnsureCapacity code of List<T>.
-            int size = array?.Length ?? 0;
-            if (size >= min)
-                return size;
-            int newSize = size == 0 ? 4 : size * 2;
-            // This constant taken from the internal code of system\array.cs of mscorlib.
-            if ((uint)newSize > max)
-                newSize = max;
-            if (newSize < min)
-                newSize = min;
-            if (keepOld && size > 0)
-                Array.Resize(ref array, newSize);
-            else
-                array = new T[newSize];
-            return newSize;
-        }
-
         /// <summary>
         /// Create a dataset from the sampling data.
         /// </summary>
-        [Obsolete]
         private Dataset CreateDatasetFromSamplingData(DataDense data,
-                        CommonParameters cp,
-                        DatasetParameters dp)
-        {
-
-            int numSampleRow = GetNumSampleRow(data.NumRows, data.NumColumns);
-
-            var rand = new Random();
-            double averageStep = (double)data.NumRows / numSampleRow;
-            int totalIdx = 0;
-            int sampleIdx = 0;
-            double density = 1; // DetectDensity(factory);
-
-            double[][] sampleValuePerColumn = new double[data.NumColumns][];
-            int[][] sampleIndicesPerColumn = new int[data.NumColumns][];
-            int[] nonZeroCntPerColumn = new int[data.NumColumns];
-            int estimateNonZeroCnt = (int)(numSampleRow * density);
-            estimateNonZeroCnt = Math.Max(1, estimateNonZeroCnt);
-            for (int i = 0; i < data.NumColumns; i++)
-            {
-                nonZeroCntPerColumn[i] = 0;
-                sampleValuePerColumn[i] = new double[estimateNonZeroCnt];
-                sampleIndicesPerColumn[i] = new int[estimateNonZeroCnt];
-            };
-            //using (var cursor = factory.Create())
-            var row = 0;
-            {
-                int step = 1;
-                if (averageStep > 1)
-                    step = rand.Next((int)(2 * averageStep - 1)) + 1;
-                row += step;
-                while (row < data.NumRows)
-                {
-                    //if (cursor.Features.IsDense)
-                    {
-                        //GetFeatureValueDense(ch, cursor, catMetaData, rand, out float[] featureValues);
-                        var featureValues = data.Features[row];
-                        for (int i = 0; i < featureValues.Length; ++i)
-                        {
-                            float fv = featureValues[i];
-                            if (fv == 0)
-                                continue;
-                            int curNonZeroCnt = nonZeroCntPerColumn[i];
-                            EnsureSize(ref sampleValuePerColumn[i], curNonZeroCnt + 1);
-                            EnsureSize(ref sampleIndicesPerColumn[i], curNonZeroCnt + 1);
-                            sampleValuePerColumn[i][curNonZeroCnt] = fv;
-                            sampleIndicesPerColumn[i][curNonZeroCnt] = sampleIdx;
-                            nonZeroCntPerColumn[i] = curNonZeroCnt + 1;
-                        }
-                    }
-                    //else
-                    //{
-                    //    GetFeatureValueSparse(ch, cursor, catMetaData, rand, out int[] featureIndices, out float[] featureValues, out int cnt);
-                    //    for (int i = 0; i < cnt; ++i)
-                    //    {
-                    //        int colIdx = featureIndices[i];
-                    //        float fv = featureValues[i];
-                    //        if (fv == 0)
-                    //            continue;
-                    //        int curNonZeroCnt = nonZeroCntPerColumn[colIdx];
-                    //        Utils.EnsureSize(ref sampleValuePerColumn[colIdx], curNonZeroCnt + 1);
-                    //        Utils.EnsureSize(ref sampleIndicesPerColumn[colIdx], curNonZeroCnt + 1);
-                    //        sampleValuePerColumn[colIdx][curNonZeroCnt] = fv;
-                    //        sampleIndicesPerColumn[colIdx][curNonZeroCnt] = sampleIdx;
-                    //        nonZeroCntPerColumn[colIdx] = curNonZeroCnt + 1;
-                    //    }
-                    //}
-                    totalIdx += step;
-                    ++sampleIdx;
-                    if (numSampleRow == sampleIdx || data.NumRows == totalIdx)
-                        break;
-                    averageStep = (double)(data.NumRows - totalIdx) / (numSampleRow - sampleIdx);
-                    step = 1;
-                    if (averageStep > 1)
-                        step = rand.Next((int)(2 * averageStep - 1)) + 1;
-
-                    row += step;
-                }
-            }
-            var dataset = new Dataset(sampleValuePerColumn
-                                     , sampleIndicesPerColumn
-                                     , data.NumColumns
-                                     , nonZeroCntPerColumn
-                                     , sampleIdx
-                                     , data.NumRows
-                                     , cp
-                                     , dp
-                                     , data.Labels
-                                     , data.Weights
-                                     , data.Groups
-                                     );
-            return dataset;
-        }
-
-        /// <summary>
-        /// Create a dataset from the sampling data.
-        /// </summary>
-        private Dataset CreateDatasetFromSamplingData2(DataDense data,
                         CommonParameters cp,
                         DatasetParameters dp)
         {
@@ -296,108 +127,6 @@ namespace LightGBMNet.Train
                                      , data.Groups
                                      );
             return dataset;
-        }
-
-        /// <summary>
-        /// Load dataset. Use row batch way to reduce peak memory cost.
-        /// </summary>
-        [Obsolete]
-        private void LoadDataset(DataDense data, Dataset dataset, int batchSize)
-        {
-            int numRows = data.NumRows;
-            int numCols = data.NumColumns;
-            batchSize = Math.Max(batchSize, numCols);
-            int numElem = 0;
-            int curRowCount = 0;
-
-            //double density = DetectDensity(factory);
-            //if (density >= 0.5)
-            {
-                // number of rows to batch up
-                int batchRow = Math.Min(data.NumRows, Math.Max(1, batchSize / numCols));
-
-                float[] features = new float[numCols * batchRow];
-
-                for (int i = 0; i < numRows; i++)
-                {
-                    data.Features[i].CopyTo(features, numElem);
-                    numElem += numCols;
-                    ++curRowCount;
-                    if (batchRow == curRowCount)
-                    {
-                        Debug.Assert(numElem == curRowCount * numCols);
-                        dataset.PushRows(features, curRowCount, numCols, i + 1 - curRowCount);
-                        curRowCount = 0;
-                        numElem = 0;
-                    }
-                }
-                if (curRowCount > 0)
-                    dataset.PushRows(features, curRowCount, numCols, numRows - curRowCount);
-            }
-
-            // sparse??
-            //else
-            //{
-            //    int esimateBatchRow = (int)(batchSize / (catMetaData.NumCol * density));
-            //    esimateBatchRow = Math.Max(1, esimateBatchRow);
-            //    float[] features = new float[batchSize];
-            //    int[] indices = new int[batchSize];
-            //    int[] indptr = new int[esimateBatchRow + 1];
-            //
-            //    using (var cursor = factory.Create())
-            //    {
-            //        while (cursor.MoveNext())
-            //        {
-            //            ch.Assert(totalRowCount < numRow);
-            //            // Need push rows to LightGBM.
-            //            if (numElem + cursor.Features.Count > features.Length)
-            //            {
-            //                // Mini batch size is greater than size of one row.
-            //                // So, at least we have the data of one row.
-            //                ch.Assert(curRowCount > 0);
-            //                Utils.EnsureSize(ref indptr, curRowCount + 1);
-            //                indptr[curRowCount] = numElem;
-            //                // PushRows is run by multi-threading inside, so lock here.
-            //                lock (LightGbmShared.LockForMultiThreadingInside)
-            //                {
-            //                    dataset.PushRows(indptr, indices, features,
-            //                        curRowCount + 1, numElem, catMetaData.NumCol, totalRowCount - curRowCount);
-            //                }
-            //                curRowCount = 0;
-            //                numElem = 0;
-            //            }
-            //            Utils.EnsureSize(ref indptr, curRowCount + 1);
-            //            indptr[curRowCount] = numElem;
-            //            CopyToCsr(ch, cursor, indices, features, catMetaData, rand, ref numElem);
-            //            ++totalRowCount;
-            //            ++curRowCount;
-            //        }
-            //        ch.Assert(totalRowCount == numRow);
-            //        if (curRowCount > 0)
-            //        {
-            //            Utils.EnsureSize(ref indptr, curRowCount + 1);
-            //            indptr[curRowCount] = numElem;
-            //            // PushRows is run by multi-threading inside, so lock here.
-            //            lock (LightGbmShared.LockForMultiThreadingInside)
-            //            {
-            //                dataset.PushRows(indptr, indices, features, curRowCount + 1,
-            //                    numElem, catMetaData.NumCol, totalRowCount - curRowCount);
-            //            }
-            //        }
-            //    }
-            //}
-        }
-
-        [Obsolete]
-        private static int GetNumSampleRow(int numRow, int numCol)
-        {
-            // Default is 65536.
-            int ret = 1 << 16;
-            // If have many features, use more sampling data.
-            if (numCol >= 100000)
-                ret *= 4;
-            ret = Math.Min(ret, numRow);
-            return ret;
         }
 
     }
@@ -496,7 +225,15 @@ namespace LightGBMNet.Train
         {
             // For multi class, the number of labels is required.
             if (!(PredictionKind != PredictionKind.MultiClassClassification || Objective.NumClass > 1))
-                throw new Exception("LightGBM requires the number of classes to be specified in the parameters.");
+                throw new Exception("LightGBM requires the number of classes to be specified in the parameters for multi-class classification.");
+
+            if (PredictionKind == PredictionKind.Ranking)
+            {
+                if (data.Training.GetGroups() == null)
+                    throw new Exception("Require Groups training data for ObjectiveType.LambdaRank");
+                if (data.Validation != null && data.Validation.GetGroups() == null)
+                    throw new Exception("Require Groups validation data for ObjectiveType.LambdaRank");
+            }
 
             TrainMetrics.Clear();
             ValidMetrics.Clear();
@@ -535,9 +272,6 @@ namespace LightGBMNet.Train
             return rslt;
         }
 
-        //public double TrainingMetric => Booster.EvalTrain();
-        //public double ValidationMetric => Booster.EvalValid();
-
         // TODO TODO TODO
         //private void InitParallelTraining()
         //{
@@ -567,13 +301,6 @@ namespace LightGBMNet.Train
             //if (ParallelTraining.NumMachines() > 1)
             //    LightGbmInterfaceUtils.Check(WrappedLightGbmInterface.NetworkFree());
         }
-
-
-        //private Booster TrainCore(Parameters args, Dataset dtrain, Dataset dvalid = null)
-        //{
-        //
-        //    return Train(args, dtrain, dvalid: dvalid);
-        //}
 
         /// <summary>
         /// Train and return a booster.
@@ -673,6 +400,4 @@ namespace LightGBMNet.Train
             return bst;
         }
     }
-
-
 }

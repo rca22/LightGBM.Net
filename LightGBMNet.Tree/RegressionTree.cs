@@ -27,8 +27,6 @@ namespace LightGBMNet.Tree
         /// </summary>
         public UInt32[] CategoricalThresholds { get; }
         public int[] CategoricalBoundaries { get; }
-        // These are the thresholds based on the binned values of the raw features.
-        //public UInt32[] Thresholds { get; }
         // These are the thresholds based on the raw feature values. Populated after training.
         public double[] RawThresholds { get; }
         public double[] SplitGains { get; }

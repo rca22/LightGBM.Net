@@ -69,10 +69,6 @@ namespace LightGBMNet.Tree
             for(var i=0; i < Predictors.Length; i++)
                 Predictors[i].GetOutput(ref src, ref dst[i]);
 
-            // note: parallelisation of eval moved to individual predictors
-            //var tmp = src;
-            //Parallel.For(0, Predictors.Length, i => Predictors[i].GetOutput(ref tmp, ref values[i]));
-
             if (IsSoftMax)
                 Softmax(dst, Predictors.Length);
             else
