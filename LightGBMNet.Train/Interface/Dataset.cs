@@ -75,11 +75,11 @@ namespace LightGBMNet.Train
                 };
             }
             if(labels != null)
-                SetLabel(labels);
+                SetLabels(labels);
             if (weights != null)
                 SetWeights(weights);
             if (groups != null)
-                SetGroup(groups);
+                SetGroups(groups);
 
             if (NumFeatures != numCol)
                 throw new Exception("Expected GetNumCols to be equal to numCol");
@@ -137,11 +137,11 @@ namespace LightGBMNet.Train
                 };
             }
             if (labels != null)
-                SetLabel(labels);
+                SetLabels(labels);
             if (weights != null)
                 SetWeights(weights);
             if (groups != null)
-                SetGroup(groups);
+                SetGroups(groups);
 
             if (NumFeatures != numCol)
                 throw new Exception("Expected GetNumCols to be equal to numCol");
@@ -157,11 +157,11 @@ namespace LightGBMNet.Train
             PInvokeException.Check(PInvoke.DatasetCreateByReference(refHandle, numTotalRow, ref _handle),
                                    nameof(PInvoke.DatasetCreateByReference));
             if(labels != null)
-                SetLabel(labels);
+                SetLabels(labels);
             if (weights != null)
                 SetWeights(weights);
             if (groups != null)
-                SetGroup(groups);
+                SetGroups(groups);
         }
 
         // Load a dataset from file, adding additional parameters and using the optional reference dataset to align bins
@@ -244,7 +244,7 @@ namespace LightGBMNet.Train
             }
         }
 
-        public unsafe void SetLabel(float[] labels)
+        public unsafe void SetLabels(float[] labels)
         {
             if (labels == null)
                 throw new System.ArgumentNullException("labels");
@@ -257,42 +257,38 @@ namespace LightGBMNet.Train
                     PInvoke.CApiDType.Float32), nameof(PInvoke.DatasetSetField));
         }
 
+        // note that weights can be null
         public unsafe void SetWeights(float[] weights)
         {
-            if (weights == null)
-                throw new System.ArgumentNullException("weights");
-
-            if(weights.Length != NumRows)
-                throw new System.ArgumentException("Expected weights to have a length equal to GetNumRows()", "weights");
-
-            // Skip SetWeights if all weights are same.
-            bool allSame = true;
-            for (int i = 1; i < weights.Length; ++i)
+            if (weights != null)
             {
-                if (weights[i] != weights[0])
-                {
-                    allSame = false;
-                    break;
-                }
-            }
-            if (!allSame)
-            {
+                if (weights.Length != NumRows)
+                    throw new System.ArgumentException("Expected weights to have a length equal to GetNumRows()", "weights");
+
                 fixed (float* ptr = weights)
                     PInvokeException.Check(PInvoke.DatasetSetField(_handle, "weight", (IntPtr)ptr, weights.Length,
                         PInvoke.CApiDType.Float32), nameof(PInvoke.DatasetSetField));
             }
-
+            else
+            {
+                PInvokeException.Check(PInvoke.DatasetSetField(_handle, "weight", (IntPtr)null, 0,
+                    PInvoke.CApiDType.Float32), nameof(PInvoke.DatasetSetField));
+            }
         }
 
-        public unsafe void SetGroup(int[] groups)
+        public unsafe void SetGroups(int[] groups)
         {
-            if (groups == null)
-                throw new System.ArgumentNullException("groups");
-
-            fixed (int* ptr = groups)
-                PInvokeException.Check(PInvoke.DatasetSetField(_handle, "group", (IntPtr)ptr, groups.Length,
+            if (groups != null)
+            {
+                fixed (int* ptr = groups)
+                    PInvokeException.Check(PInvoke.DatasetSetField(_handle, "group", (IntPtr)ptr, groups.Length,
+                        PInvoke.CApiDType.Int32), nameof(PInvoke.DatasetSetField));
+            }
+            else
+            {
+                PInvokeException.Check(PInvoke.DatasetSetField(_handle, "group", (IntPtr)null, 0,
                     PInvoke.CApiDType.Int32), nameof(PInvoke.DatasetSetField));
-
+            }
         }
 
         // Not used now. Can use for the continued train.
@@ -475,6 +471,7 @@ namespace LightGBMNet.Train
                                     nameof(PInvoke.DatasetGetField));
             if (typ != PInvoke.CApiDType.Float32)
                 throw new Exception(String.Format("Field {0} is of type {1}", fieldName, typ));
+            if (ptr == IntPtr.Zero) return null;
             var rslts = new float[outLen];
             Marshal.Copy(ptr, rslts, 0, outLen);
             return rslts;

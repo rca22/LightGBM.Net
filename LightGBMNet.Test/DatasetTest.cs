@@ -48,7 +48,6 @@ namespace LightGBMNet.Train.Test
             var sizePerColumn = new int[numColumns];
             for (int i = 0; i < numColumns; ++i) sizePerColumn[i] = numTotalRow;
 
-
             var cp = new CommonParameters();
             var dp = new DatasetParameters
             {
@@ -72,24 +71,23 @@ namespace LightGBMNet.Train.Test
         [Fact]
         public void GetSetLabels()
         {
-            var rand = new System.Random();
+            var rand = new Random();
             for (int test = 0; test < 100; ++test)
                 using (var ds = CreateRandom(rand))
                 {
                     var rows = ds.NumRows;
                     var labels = new float[rows];
                     for (int i = 0; i < rows; ++i) labels[i] = (float)rand.NextDouble();
-                    ds.SetLabel(labels);
+                    ds.SetLabels(labels);
                     var retLabels = ds.GetLabels();
                     Check.EqualArray(retLabels, labels);
-
                 }
         }
 
         [Fact]
         public void GetSetWeights()
         {
-            var rand = new System.Random();
+            var rand = new Random();
             for (int test = 0; test < 100; ++test)
                 using (var ds = CreateRandom(rand))
                 {
@@ -99,13 +97,19 @@ namespace LightGBMNet.Train.Test
                     ds.SetWeights(weights);
                     var retWeights = ds.GetWeights();
                     Check.EqualArray(retWeights, weights);
+
+                    if (test == 0)
+                    {
+                        ds.SetWeights(null);
+                        Assert.Null(ds.GetWeights());
+                    }
                 }
         }
 
         [Fact]
         public void GetSetFeatureNames()
         {
-            var rand = new System.Random();
+            var rand = new Random();
             for (int test = 0; test < 100; ++test)
                 using (var ds = CreateRandom(rand))
                 {
@@ -123,7 +127,7 @@ namespace LightGBMNet.Train.Test
         [Fact]
         public void GetSetGroups()
         {
-            var rand = new System.Random();
+            var rand = new Random();
             for (int test = 0; test < 100; ++test)
                 using (var ds = CreateRandom(rand))
                 {
@@ -139,7 +143,7 @@ namespace LightGBMNet.Train.Test
         [Fact]
         public void SaveLoad()
         {
-            var rand = new System.Random();
+            var rand = new Random();
             for (int test = 0; test < 100; ++test)
                 using (var ds = CreateRandom(rand))
                 {
@@ -166,7 +170,7 @@ namespace LightGBMNet.Train.Test
         [Fact]
         public void GetSubset()
         {
-            var rand = new System.Random();
+            var rand = new Random();
             for (int test = 0; test < 100; ++test)
                 using (var ds = CreateRandom(rand))
                 {
