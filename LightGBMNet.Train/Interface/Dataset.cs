@@ -26,6 +26,7 @@ namespace LightGBMNet.Train
             _handle = h;
         }
 
+
         public unsafe Dataset(double[][] sampleValuePerColumn,
             int[][] sampleIndicesPerColumn,
             int numCol,
@@ -58,9 +59,10 @@ namespace LightGBMNet.Train
                 };
                 fixed (double** ptrValues = ptrArrayValues)
                 fixed (int** ptrIndices = ptrArrayIndices)
+                fixed (int* ptrSampleNonZeroCntPerColumn = sampleNonZeroCntPerColumn)
                 {
                     PInvokeException.Check(PInvoke.DatasetCreateFromSampledColumn(
-                        (IntPtr)ptrValues, (IntPtr)ptrIndices, numCol, sampleNonZeroCntPerColumn, numSampleRow, numTotalRow,
+                        (IntPtr)ptrValues, (IntPtr)ptrIndices, numCol, ptrSampleNonZeroCntPerColumn, numSampleRow, numTotalRow,
                         pmString, ref _handle),nameof(PInvoke.DatasetCreateFromSampledColumn));
                 }
             }
@@ -147,6 +149,49 @@ namespace LightGBMNet.Train
                 throw new Exception("Expected GetNumCols to be equal to numCol");
 
             if (NumRows != data.Length)
+                throw new Exception("Expected GetNumRows to be equal to numTotalRow");
+        }
+
+        public unsafe Dataset(SparseMatrix data,
+            int numCol,
+            CommonParameters cp,
+            DatasetParameters dp,
+            float[] labels = null,
+            float[] weights = null,
+            int[] groups = null,
+            Dataset reference = null)
+        {
+            var pmString = ParamsToString(cp, dp);
+
+            _handle = IntPtr.Zero;
+
+            fixed (float* dataPtr = data.Data)
+            fixed (int* indPtr = data.RowExtents, indices = data.ColumnIndices)
+            {
+                PInvokeException.Check(PInvoke.DatasetCreateFromCsr(
+                    indPtr,
+                    indices,
+                    dataPtr,
+                    data.RowExtents.Length,
+                    data.Data.Length,
+                    numCol,
+                    pmString,
+                    reference?._handle ?? IntPtr.Zero,
+                    ref _handle
+                    ), nameof(PInvoke.DatasetCreateFromCsr));
+            }
+
+            if (labels != null)
+                SetLabels(labels);
+            if (weights != null)
+                SetWeights(weights);
+            if (groups != null)
+                SetGroups(groups);
+
+            if (NumFeatures != numCol)
+                throw new Exception("Expected GetNumCols to be equal to numCol");
+
+            if (NumRows != data.RowCount)
                 throw new Exception("Expected GetNumRows to be equal to numTotalRow");
         }
 
@@ -397,11 +442,12 @@ namespace LightGBMNet.Train
         }
 */
 
-        public Dataset GetSubset(int[] usedRowIndices, int numUsedRowIndices, CommonParameters cp = null, DatasetParameters dp = null)
+        public unsafe Dataset GetSubset(int[] usedRowIndices, int numUsedRowIndices, CommonParameters cp = null, DatasetParameters dp = null)
         {
             var pmString = ParamsToString(cp, dp);
             IntPtr p = IntPtr.Zero;
-            PInvokeException.Check(PInvoke.DatasetGetSubset(_handle, usedRowIndices, numUsedRowIndices, pmString, ref p),
+            fixed (int* usedRowIndices2 = usedRowIndices)
+                PInvokeException.Check(PInvoke.DatasetGetSubset(_handle, usedRowIndices2, numUsedRowIndices, pmString, ref p),
                                    nameof(PInvoke.DatasetGetSubset));
             return new Dataset(p);
         }

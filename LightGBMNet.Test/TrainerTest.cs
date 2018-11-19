@@ -127,6 +127,17 @@ namespace LightGBMNet.Train.Test
             return rslt;
         }
 
+        public static DataSparse Dense2Sparse(DataDense data)
+        {
+            return (data == null) ? null : new DataSparse()
+            {
+                Features = DatasetTest.Dense2Sparse(data.Features),
+                Labels = data.Labels,
+                Weights = data.Weights,
+                Groups = data.Groups
+            };
+        }
+
         public static DataDense CreateRandomDenseClassifyData(
             Random rand,
             int numClasses,
@@ -231,7 +242,8 @@ namespace LightGBMNet.Train.Test
 
                 try
                 {
-                    using (var datasets = new Datasets(pms.Common, pms.Dataset, trainData, validData))
+                    using (var datasets = (rand.Next(2) == 0) ? new Datasets(pms.Common, pms.Dataset, trainData, validData) :
+                                                                new Datasets(pms.Common, pms.Dataset, Dense2Sparse(trainData), Dense2Sparse(validData)))
                     using (var trainer = new BinaryTrainer(pms.Learning, pms.Objective))
                     {
                         var model = trainer.Train(datasets, learningRateSchedule);
@@ -277,7 +289,7 @@ namespace LightGBMNet.Train.Test
                         }
 
                         var gains = model.GetFeatureWeights(rand.Next(2) == 0, rand.Next(2) == 0);
-                        foreach(var kv in gains)
+                        foreach (var kv in gains)
                         {
                             Assert.True(0 <= kv.Key && kv.Key < trainData.NumColumns);
                             Assert.True(0.0 <= kv.Value);
@@ -312,10 +324,11 @@ namespace LightGBMNet.Train.Test
 
                 try
                 {
-                    using (var datasets = new Datasets(pms.Common, pms.Dataset, trainData, validData))
+                    using (var datasets = (rand.Next(2) == 0) ? new Datasets(pms.Common, pms.Dataset, trainData, validData) :
+                                                                new Datasets(pms.Common, pms.Dataset, Dense2Sparse(trainData), Dense2Sparse(validData)))
                     using (var trainer = new MulticlassTrainer(pms.Learning, pms.Objective))
                     {
-                        trainer.ToCommandLineFiles(datasets);
+                        //trainer.ToCommandLineFiles(datasets);
 
                         var model = trainer.Train(datasets, learningRateSchedule);
                         model.MaxThreads = rand.Next(1, Environment.ProcessorCount);
@@ -327,15 +340,15 @@ namespace LightGBMNet.Train.Test
                         {
                             PredictorPersist.Save(model, writer);
                             ms.Position = 0;
-                            model2 = PredictorPersist.Load<double []>(reader) as OvaPredictor;
+                            model2 = PredictorPersist.Load<double[]>(reader) as OvaPredictor;
                             Assert.Equal(ms.Position, ms.Length);
                         }
 
-                        for (var irow=0; irow < trainData.Features.Length; irow++)
+                        for (var irow = 0; irow < trainData.Features.Length; irow++)
                         {
                             var row = trainData.Features[irow];
                             // check evaluation of managed model
-                            double [] output = null;
+                            double[] output = null;
                             var input = new VBuffer<float>(row.Length, row);
                             model.GetOutput(ref input, ref output);
                             foreach (var p in output)
@@ -347,15 +360,15 @@ namespace LightGBMNet.Train.Test
                             Assert.Equal(output.Length, pms.Objective.NumClass);
 
                             // compare with output of serialised model
-                            double [] output2 = null;
+                            double[] output2 = null;
                             model2.GetOutput(ref input, ref output2);
                             Assert.Equal(output.Length, output2.Length);
-                            for(var i=0; i<output.Length; i++)
+                            for (var i = 0; i < output.Length; i++)
                                 Compare(output[i], output2[i]);
 
                             // check raw scores against native booster object
                             var isRf = (pms.Learning.Boosting == BoostingType.RandomForest);
-                            var rawscores = (model as OvaPredictor).Predictors.Select(p => 
+                            var rawscores = (model as OvaPredictor).Predictors.Select(p =>
                             {
                                 double outputi = 0;
                                 if (p is CalibratedPredictor)
@@ -372,8 +385,8 @@ namespace LightGBMNet.Train.Test
                                 (var rawscore, var numTrees) = rawscores[i];
                                 Compare(isRf ? rawscore * numTrees : rawscore, rawscores3[i]);
                             }
-                                //Console.WriteLine(trainer.GetModelString());
-                                //throw new Exception($"Raw score mismatch at row {irow}: {rawscores[i]} vs {rawscores3[i]} (error: {Math.Abs(rawscores[i] - rawscores3[i])}) input: {String.Join(", ", row)}");
+                            //Console.WriteLine(trainer.GetModelString());
+                            //throw new Exception($"Raw score mismatch at row {irow}: {rawscores[i]} vs {rawscores3[i]} (error: {Math.Abs(rawscores[i] - rawscores3[i])}) input: {String.Join(", ", row)}");
 
                             // check probabilities against native booster object
                             var output3 = trainer.Evaluate(Booster.PredictType.Normal, row);
@@ -397,7 +410,7 @@ namespace LightGBMNet.Train.Test
                             }
                         }
 
-                        var gains = model.GetFeatureWeights(rand.Next(2)==0, rand.Next(2) == 0);
+                        var gains = model.GetFeatureWeights(rand.Next(2) == 0, rand.Next(2) == 0);
                         foreach (var kv in gains)
                         {
                             Assert.True(0 <= kv.Key && kv.Key < trainData.NumColumns);
@@ -460,11 +473,12 @@ namespace LightGBMNet.Train.Test
                         }
                     }
 
-                  // uncomment to select particular iteration
-                  //if (test != 3)
-                  //    continue;
+                    // uncomment to select particular iteration
+                    //if (test != 3)
+                    //    continue;
 
-                    using (var datasets = new Datasets(pms.Common, pms.Dataset, trainData, validData))
+                    using (var datasets = (rand.Next(2) == 0) ? new Datasets(pms.Common, pms.Dataset, trainData, validData) :
+                                                                new Datasets(pms.Common, pms.Dataset, Dense2Sparse(trainData), Dense2Sparse(validData)))
                     using (var trainer = new RegressionTrainer(pms.Learning, pms.Objective))
                     {
                         //if (true)
@@ -558,7 +572,8 @@ namespace LightGBMNet.Train.Test
 
                 try
                 {
-                    using (var datasets = new Datasets(pms.Common, pms.Dataset, trainData, validData))
+                    using (var datasets = (rand.Next(2) == 0) ? new Datasets(pms.Common, pms.Dataset, trainData, validData) :
+                                                                new Datasets(pms.Common, pms.Dataset, Dense2Sparse(trainData), Dense2Sparse(validData)))
                     using (var trainer = new RankingTrainer(pms.Learning, pms.Objective))
                     {
                         var model = trainer.Train(datasets, learningRateSchedule);

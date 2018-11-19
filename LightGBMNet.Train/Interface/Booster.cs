@@ -150,11 +150,12 @@ namespace LightGBMNet.Train
                                    nameof(PInvoke.BoosterResetParameter));
         }
 
-        public bool UpdateCustom(float[] grad, float[] hess)
+        public unsafe bool UpdateCustom(float[] grad, float[] hess)
         {
             int isFinished = 0;
-            PInvokeException.Check(PInvoke.BoosterUpdateOneIterCustom(Handle, grad, hess, ref isFinished),
-                                   nameof(PInvoke.BoosterUpdateOneIterCustom));
+            fixed(float *gradPtr = grad, hessPtr = hess)
+                PInvokeException.Check(PInvoke.BoosterUpdateOneIterCustom(Handle, gradPtr, hessPtr, ref isFinished),
+                                       nameof(PInvoke.BoosterUpdateOneIterCustom));
             return isFinished == 1;
         }
 
@@ -501,7 +502,7 @@ namespace LightGBMNet.Train
         }
 
         //To Do: store this matrix efficiently.
-        public void Refit(int[,] leafPreds)
+        public unsafe void Refit(int[,] leafPreds)
         {
             Check.NonNull(leafPreds, nameof(leafPreds));
             var len1 = leafPreds.GetLength(0);//nrow
@@ -512,7 +513,8 @@ namespace LightGBMNet.Train
                 {
                     data[i * len2 + j] = leafPreds[i, j];
                 }
-            PInvokeException.Check(PInvoke.BoosterRefit(Handle,data,len1,len2), nameof(PInvoke.BoosterRefit));
+            fixed (int *dataPtr = data)
+                PInvokeException.Check(PInvoke.BoosterRefit(Handle,dataPtr,len1,len2), nameof(PInvoke.BoosterRefit));
         }
 
         public long GetNumPredict(int dataIdx)

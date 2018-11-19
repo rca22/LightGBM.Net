@@ -10,53 +10,6 @@ using LightGBMNet.Tree;
 
 namespace LightGBMNet.Train
 {    
-    // TODO: add sparse version
-    public class DataDense
-    {
-        /// <summary>
-        /// Array of rows of feature vectors.
-        /// </summary>
-        public float[][] Features;
-        /// <summary>
-        /// Array of labels corresponding to each row in Features.
-        /// </summary>
-        public float[] Labels;
-        /// <summary>
-        /// (Optional) Array of training weights corresponding to each row in Features.
-        /// </summary>
-        public float[] Weights;
-        /// <summary>
-        /// Array of 
-        /// (Must only be specified when ObjectiveType = LambdaRank)
-        /// </summary>
-        public int[] Groups;
-
-        public int NumRows => Features.Length;
-        public int NumColumns => Features[0].Length;
-
-        public DataDense() { }
-
-        public void Validate()
-        {
-            if (Features == null) throw new Exception("Features is null");
-            if (Labels == null) throw new Exception("Labels is null");
-
-            var numRows = NumRows;
-            if (Labels.Length != numRows) throw new Exception("Number of Features must match number of Labels");
-            if (Features.Length > 0)
-            {
-                var dim = NumColumns;
-                foreach (var row in Features)
-                {
-                    if (row == null) throw new Exception("All feature vectors must be non-null.");
-                    if (row.Length != dim) throw new Exception("Number of columns in all feature vectors must be identical.");
-                }
-            }
-
-            if (Weights != null && Weights.Length != numRows) throw new Exception("Number of Weights must match number of Labels");
-            if (Groups != null && Groups.Sum() != numRows) throw new Exception("Sum of group sizes must match number of Labels");
-        }
-    }
 
     public class Datasets : IDisposable
     {
@@ -67,6 +20,16 @@ namespace LightGBMNet.Train
         public Dataset Validation { get; set; } = null;
 
         public Datasets(CommonParameters cp, DatasetParameters dp, DataDense trainData, DataDense validData)
+        {
+            Common = cp;
+            Dataset = dp;
+
+            Training = LoadTrainingData(trainData);
+            if (validData != null)
+                Validation = LoadValidationData(Training, validData);
+        }
+
+        public Datasets(CommonParameters cp, DatasetParameters dp, DataSparse trainData, DataSparse validData)
         {
             Common = cp;
             Dataset = dp;
@@ -94,7 +57,34 @@ namespace LightGBMNet.Train
             return dtrain;
         }
 
+        private Dataset LoadTrainingData(DataSparse trainData)
+        {
+            if (trainData == null) throw new ArgumentNullException(nameof(trainData));
+            trainData.Validate();
+
+            // TODO: not parallelised, better off to concat data and pass in as a single matrix?
+            Dataset dtrain = CreateDatasetFromSamplingData(trainData, Common, Dataset);
+            return dtrain;
+        }
+
         private Dataset LoadValidationData(Dataset dtrain, DataDense validData)
+        {
+            if (validData == null) throw new ArgumentNullException(nameof(validData));
+            validData.Validate();
+
+            var dvalid = new Dataset( validData.Features
+                                    , validData.NumColumns
+                                    , Common
+                                    , Dataset
+                                    , validData.Labels
+                                    , validData.Weights
+                                    , validData.Groups
+                                    , dtrain
+                                    );
+            return dvalid;
+        }
+
+        private Dataset LoadValidationData(Dataset dtrain, DataSparse validData)
         {
             if (validData == null) throw new ArgumentNullException(nameof(validData));
             validData.Validate();
@@ -115,6 +105,24 @@ namespace LightGBMNet.Train
         /// Create a dataset from the sampling data.
         /// </summary>
         private Dataset CreateDatasetFromSamplingData(DataDense data,
+                        CommonParameters cp,
+                        DatasetParameters dp)
+        {
+            var dataset = new Dataset( data.Features
+                                     , data.NumColumns
+                                     , cp
+                                     , dp
+                                     , data.Labels
+                                     , data.Weights
+                                     , data.Groups
+                                     );
+            return dataset;
+        }
+
+        /// <summary>
+        /// Create a dataset from the sampling data.
+        /// </summary>
+        private Dataset CreateDatasetFromSamplingData(DataSparse data,
                         CommonParameters cp,
                         DatasetParameters dp)
         {

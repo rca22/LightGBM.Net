@@ -109,10 +109,10 @@ namespace LightGBMNet.Train
         /// <param name="ret">created dataset</param>
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_DatasetCreateFromSampledColumn", CallingConvention = CallingConvention.StdCall)]
-        public static extern int DatasetCreateFromSampledColumn(IntPtr sampleValuePerColumn,
+        public static extern unsafe int DatasetCreateFromSampledColumn(IntPtr sampleValuePerColumn,
             IntPtr sampleIndicesPerColumn,
             int numCol,
-            [In] int[] sampleNonZeroCntPerColumn,
+            int *sampleNonZeroCntPerColumn,
             int numSampleRow,
             int numTotalRow,
             [MarshalAs(UnmanagedType.LPStr)]string parameters,
@@ -142,20 +142,21 @@ namespace LightGBMNet.Train
         /// <param name="startRowIdx">row start index</param>
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_DatasetPushRows", CallingConvention = CallingConvention.StdCall)]
-        private static extern int DatasetPushRows(IntPtr dataset,
-            [In] float[] data,  // TODO: should pin array instead
+        private static extern unsafe int DatasetPushRows(IntPtr dataset,
+            float *data,
             CApiDType dataType,
             int numRow,
             int numCol,
             int startRowIdx);
 
-        public static int DatasetPushRows(IntPtr dataset,
+        public static unsafe int DatasetPushRows(IntPtr dataset,
             float[] data,
             int numRow,
             int numCol,
             int startRowIdx)
         {
-            return DatasetPushRows(dataset, data, CApiDType.Float32, numRow, numCol, startRowIdx);
+            fixed (float *dataPtr = data)
+                return DatasetPushRows(dataset, dataPtr, CApiDType.Float32, numRow, numCol, startRowIdx);
         }
 
         /// <summary>
@@ -173,29 +174,31 @@ namespace LightGBMNet.Train
         /// <param name="startRowIdx">row start index</param>
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_DatasetPushRowsByCSR", CallingConvention = CallingConvention.StdCall)]
-        private static extern int DatasetPushRowsByCsr(IntPtr dataset,
-            [In] int[] indPtr,
+        private static extern unsafe int DatasetPushRowsByCsr(IntPtr dataset,
+            int *indPtr,
             CApiDType indPtrType,
-            [In] int[] indices,
-            [In] float[] data,
+            int *indices,
+            float *data,
             CApiDType dataType,
             long nIndPtr,
             long numElem,
             long numCol,
             long startRowIdx);
 
-        public static int DatasetPushRowsByCsr(IntPtr dataset,
-            int[] indPtr,
-            int[] indices,
-            float[] data,
+        public static unsafe int DatasetPushRowsByCsr(IntPtr dataset,
+            int [] indPtr,
+            int [] indices,
+            float [] data,
             long nIndPtr,
             long numElem,
             long numCol,
             long startRowIdx)
         {
-            return DatasetPushRowsByCsr(dataset,
-                indPtr, CApiDType.Int32,
-                indices, data, CApiDType.Float32,
+            fixed (int* indPtr2 = indPtr, indices2 = indices)
+            fixed (float* data2 = data)
+                return DatasetPushRowsByCsr(dataset,
+                indPtr2, CApiDType.Int32,
+                indices2, data2, CApiDType.Float32,
                 nIndPtr, numElem, numCol, startRowIdx);
         }
 
@@ -215,11 +218,11 @@ namespace LightGBMNet.Train
         /// <param name="ret">created dataset</param>
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_DatasetCreateFromCSR", CallingConvention = CallingConvention.StdCall)]
-        private static extern int DatasetCreateFromCsr(
-            [In] int[] indPtr,
+        private static extern unsafe int DatasetCreateFromCsr(
+            int *indPtr,
             CApiDType indPtrType,
-            [In] int[] indices,
-            [In] float[] data,
+            int *indices,
+            float *data,
             CApiDType dataType,
             long nIndPtr,
             long numElem,
@@ -228,10 +231,10 @@ namespace LightGBMNet.Train
             IntPtr reference,
             ref IntPtr ret);
 
-        public static int DatasetCreateFromCsr(
-            [In] int[] indPtr,
-            [In] int[] indices,
-            [In] float[] data,
+        public static unsafe int DatasetCreateFromCsr(
+            int *indPtr,
+            int *indices,
+            float *data,
             long nIndPtr,
             long numElem,
             long numCol,
@@ -261,11 +264,11 @@ namespace LightGBMNet.Train
         /// <param name="ret">created dataset</param>
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_DatasetCreateFromCSC", CallingConvention = CallingConvention.StdCall)]
-        private static extern int DatasetCreateFromCsc(
-            [In] int[] colPtr,
+        private static extern unsafe int DatasetCreateFromCsc(
+            int *colPtr,
             CApiDType colPtrType,
-            [In] int[] indices,
-            [In] float[] data,
+            int *indices,
+            float *data,
             CApiDType dataType,
             long nColPtr,
             long nElem,
@@ -274,10 +277,10 @@ namespace LightGBMNet.Train
             IntPtr reference,
             ref IntPtr ret);
 
-        public static int DatasetCreateFromCsc(
-            [In] int[] colPtr,
-            [In] int[] indices,
-            [In] float[] data,
+        public static unsafe int DatasetCreateFromCsc(
+            int *colPtr,
+            int *indices,
+            float *data,
             long nColPtr,
             long nElem,
             long numRow,
@@ -305,8 +308,8 @@ namespace LightGBMNet.Train
         /// <param name="ret">created dataset</param>
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_DatasetCreateFromMat", CallingConvention = CallingConvention.StdCall)]
-        private static extern int DatasetCreateFromMat(
-            [In] float[] data,
+        private static extern unsafe int DatasetCreateFromMat(
+            float *data,
             CApiDType dataType,
             int nRow,
             int nCol,
@@ -315,8 +318,8 @@ namespace LightGBMNet.Train
             IntPtr reference,
             ref IntPtr ret);
 
-        public static int DatasetCreateFromMat(
-            [In] float[] data,
+        public static unsafe int DatasetCreateFromMat(
+            float *data,
             int nRow,
             int nCol,
             bool isRowMajor,
@@ -388,9 +391,9 @@ namespace LightGBMNet.Train
         /// <param name="ret">subset of data</param>
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_DatasetGetSubset", CallingConvention = CallingConvention.StdCall)]
-        public static extern int DatasetGetSubset(
+        public static extern unsafe int DatasetGetSubset(
             IntPtr handle,
-            [In] int[] usedRowIndices,
+            int *usedRowIndices,
             int numUsedRowIndices,
             [MarshalAs(UnmanagedType.LPStr)]string parameters,
             ref IntPtr ret);
@@ -610,7 +613,7 @@ namespace LightGBMNet.Train
         /// <param name="nCol">number of columns of leafPreds</param>
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_BoosterRefit", CallingConvention = CallingConvention.StdCall)]
-        public static extern int BoosterRefit(IntPtr handle, int[] leafPreds, int nRow, int nCol);
+        public static extern unsafe int BoosterRefit(IntPtr handle, int *leafPreds, int nRow, int nCol);
 
         /// <summary>
         /// update the model, by directly specify gradient and second order gradient, this can be used to support customized loss function
@@ -621,10 +624,10 @@ namespace LightGBMNet.Train
         /// <param name="isFinished">1 means finised(cannot split any more)</param>
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_BoosterUpdateOneIterCustom", CallingConvention = CallingConvention.StdCall)]
-        public static extern int BoosterUpdateOneIterCustom(
+        public static extern unsafe int BoosterUpdateOneIterCustom(
             IntPtr handle,
-            float[] grad,
-            float[] hess,
+            float *grad,
+            float *hess,
             ref int isFinished);
 
         /// <summary>
@@ -808,10 +811,10 @@ namespace LightGBMNet.Train
         [DllImport(DllName, EntryPoint = "LGBM_BoosterPredictForCSR", CallingConvention = CallingConvention.StdCall)]
         private static extern unsafe int BoosterPredictForCsr(
             IntPtr handle,
-            [In] int[] indPtr,
+            int *indPtr,
             CApiDType indptrType,
-            [In] int[] indices,
-            [In] float[] data,
+            int *indices,
+            float *data,
             CApiDType dataType,
             long nIndPtr,
             long nElem,
@@ -824,9 +827,9 @@ namespace LightGBMNet.Train
 
         public static unsafe int BoosterPredictForCsr(
             IntPtr handle,
-            [In] int[] indPtr,
-            [In] int[] indices,
-            [In] float[] data,
+            int[] indPtr,
+            int[] indices,
+            float[] data,
             long nIndPtr,
             long nElem,
             long numCol,
@@ -836,10 +839,12 @@ namespace LightGBMNet.Train
             ref long outLen,
             double* outResult)
         {
-            return BoosterPredictForCsr(handle,
-                indPtr, CApiDType.Int32,
-                indices, data, CApiDType.Float32,
-                nIndPtr, nElem, numCol, predictType, numIteration, parameter, ref outLen, outResult);
+            fixed (int *indPtr2 = indPtr, indices2 = indices)
+            fixed (float* data2 = data)
+                return BoosterPredictForCsr(handle,
+                            indPtr2, CApiDType.Int32,
+                            indices2, data2, CApiDType.Float32,
+                            nIndPtr, nElem, numCol, predictType, numIteration, parameter, ref outLen, outResult);
         }
 
         /// <summary>
@@ -866,10 +871,10 @@ namespace LightGBMNet.Train
         [DllImport(DllName, EntryPoint = "LGBM_BoosterPredictForCSC", CallingConvention = CallingConvention.StdCall)]
         private static extern unsafe int BoosterPredictForCsc(
             IntPtr handle,
-            [In] int[] colPtr,
+            int *colPtr,
             CApiDType colPtrType,
-            [In] int[] indices,
-            [In] float[] data,
+            int *indices,
+            float *data,
             CApiDType dataType,
             long nColPtr,
             long nElem,
@@ -882,9 +887,9 @@ namespace LightGBMNet.Train
 
         public static unsafe int BoosterPredictForCsc(
             IntPtr handle,
-            [In] int[] colPtr,
-            [In] int[] indices,
-            [In] float[] data,
+            int[] colPtr,
+            int[] indices,
+            float[] data,
             long nColPtr,
             long nElem,
             long numRow,
@@ -894,10 +899,12 @@ namespace LightGBMNet.Train
             ref long outLen,
             double* outResult)
         {
-            return BoosterPredictForCsc(handle,
-                colPtr, CApiDType.Int32,
-                indices, data, CApiDType.Float32,
-                nColPtr, nElem, numRow, predictType, numIteration, parameter, ref outLen, outResult);
+            fixed (int* colPtr2 = colPtr, indices2 = indices)
+            fixed (float* data2 = data)
+                return BoosterPredictForCsc(handle,
+                        colPtr2, CApiDType.Int32,
+                        indices2, data2, CApiDType.Float32,
+                        nColPtr, nElem, numRow, predictType, numIteration, parameter, ref outLen, outResult);
         }
 
         /// <summary>
@@ -921,7 +928,7 @@ namespace LightGBMNet.Train
         [DllImport(DllName, EntryPoint = "LGBM_BoosterPredictForMat", CallingConvention = CallingConvention.StdCall)]
         private static extern unsafe int BoosterPredictForMat(
             IntPtr handle,
-            [In] float[] data,
+            float *data,
             CApiDType dataType,
             int nRow,
             int nCol,
@@ -934,7 +941,7 @@ namespace LightGBMNet.Train
 
         public static unsafe int BoosterPredictForMat(
             IntPtr handle,
-            [In] float[] data,
+            float[] data,
             int nRow,
             int nCol,
             bool isRowMajor,
@@ -944,12 +951,13 @@ namespace LightGBMNet.Train
             ref long outLen,
             double* outResult)
         {
-            return BoosterPredictForMat(
-                handle,
-                data, CApiDType.Float32,
-                nRow, nCol,
-                (isRowMajor ? 1 : 0),
-                predictType, numIteration, parameter, ref outLen, outResult);
+            fixed (float *dataPtr = data)
+                return BoosterPredictForMat(
+                    handle,
+                    dataPtr, CApiDType.Float32,
+                    nRow, nCol,
+                    (isRowMajor ? 1 : 0),
+                    predictType, numIteration, parameter, ref outLen, outResult);
         }
 
         /// <summary>
