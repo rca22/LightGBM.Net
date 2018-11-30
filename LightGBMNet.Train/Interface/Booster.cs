@@ -290,8 +290,10 @@ namespace LightGBMNet.Train
 
         private static double[] Str2DoubleArray(string str, char delimiter)
         {
-            return str.Split(delimiter).Select(double.Parse).ToArray();
-
+            return str.Split(delimiter)
+                      .Select(s => double.TryParse(s.Replace("inf", "∞"), out double rslt) ? rslt : 
+                                    (s.Contains("nan") ? Double.NaN : throw new Exception($"Cannot parse as double: {s}")))
+                      .ToArray();
         }
 
         private static int[] Str2IntArray(string str, char delimiter)
