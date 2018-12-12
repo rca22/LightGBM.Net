@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 
 namespace LightGBMNet.Train
 {
-    class PInvokeException : System.Exception
+    class PInvokeException : Exception
     {
         public readonly string FunctionName;
         public readonly int ErrorCode;

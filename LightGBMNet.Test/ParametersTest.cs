@@ -79,12 +79,14 @@ namespace LightGBMNet.Train.Test
         {
             var helper = new ParamsHelper<Example>();
             var result = new Dictionary<string, string>();
-            var e = new Example();
-            e.MyInt = 2;
-            e.MyDouble = 3.5;
-            e.MyFloat = 4.5f;
-            e.MyLong = 5;
-            e.MyString = "goodbye";
+            var e = new Example
+            {
+                MyInt = 2,
+                MyDouble = 3.5,
+                MyFloat = 4.5f,
+                MyLong = 5,
+                MyString = "goodbye"
+            };
 
             helper.AddParameters(e, result);
             Assert.Equal(5, result.Count);
@@ -105,12 +107,14 @@ namespace LightGBMNet.Train.Test
         {
             var helper = new ParamsHelper<Example>();
             var result = new Dictionary<string, string>();
-            var e = new Example();
-            e.MyInt = 2;
-            e.MyDouble = 3.5;
-            e.MyFloat = 4.5f;
-            e.MyLong = 5;
-            e.MyString = "goodbye";
+            var e = new Example
+            {
+                MyInt = 2,
+                MyDouble = 3.5,
+                MyFloat = 4.5f,
+                MyLong = 5,
+                MyString = "goodbye"
+            };
 
             helper.AddParameters(e, result);
             var e2 = helper.FromParameters(result);
@@ -293,10 +297,10 @@ namespace LightGBMNet.Train.Test
                     try
                     {
                         var typ = prop.PropertyType;
-                        if (typ == typeof(Int32))
+                        if (typ == typeof(int))
                             prop.SetValue(rslt, r.Next());
-                        else if (typ == typeof(Int64))
-                            prop.SetValue(rslt, (Int64)r.Next());
+                        else if (typ == typeof(long))
+                            prop.SetValue(rslt, (long)r.Next());
                         else if (typ == typeof(double))
                             prop.SetValue(rslt, r.NextDouble());
                         else if (typ == typeof(float))
@@ -312,7 +316,7 @@ namespace LightGBMNet.Train.Test
                         else if (typ.IsEnum)
                             prop.SetValue(rslt, GenerateEnum(r, typ));
                         else
-                            throw new Exception(String.Format("Unhandled parameter type {0}", typ));
+                            throw new Exception(string.Format("Unhandled parameter type {0}", typ));
                     }
                     catch (System.Reflection.TargetInvocationException e)
                     {
@@ -338,10 +342,10 @@ namespace LightGBMNet.Train.Test
                         {
                             var prev = prop.GetValue(src);
                             var typ = prop.PropertyType;
-                            if (typ == typeof(Int32))
+                            if (typ == typeof(int))
                                 prop.SetValue(src, r.Next());
-                            else if (typ == typeof(Int64))
-                                prop.SetValue(src, (Int64)r.Next());
+                            else if (typ == typeof(long))
+                                prop.SetValue(src, (long)r.Next());
                             else if (typ == typeof(double))
                                 prop.SetValue(src, r.NextDouble());
                             else if (typ == typeof(float))
@@ -357,7 +361,7 @@ namespace LightGBMNet.Train.Test
                             else if (typ.IsEnum)
                                 prop.SetValue(src, GenerateEnum(r, typ));
                             else
-                                throw new Exception(String.Format("Unhandled parameter type {0}", typ));
+                                throw new Exception(string.Format("Unhandled parameter type {0}", typ));
                             var curr = prop.GetValue(src);
                             modified = !Equal(prev, curr);
                         }
@@ -411,8 +415,8 @@ namespace LightGBMNet.Train.Test
                     try
                     {
                         var typ = prop.PropertyType;
-                        if (typ == typeof(Int32) ||
-                            typ == typeof(Int64) ||
+                        if (typ == typeof(int) ||
+                            typ == typeof(long) ||
                             typ == typeof(double) ||
                             typ == typeof(float) ||
                             typ == typeof(string) ||
@@ -423,7 +427,7 @@ namespace LightGBMNet.Train.Test
                         else if (typ.IsArray)
                             prop.SetValue(rslt, CloneArray((Array)prop.GetValue(src)));
                         else
-                            throw new Exception(String.Format("Unhandled parameter type {0}", typ));
+                            throw new Exception(string.Format("Unhandled parameter type {0}", typ));
                     }
                     catch (Exception e)
                     {

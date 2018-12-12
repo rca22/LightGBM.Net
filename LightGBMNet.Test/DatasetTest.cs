@@ -207,7 +207,7 @@ namespace LightGBMNet.Train.Test
                     var cols = ds.NumFeatures;
                     var names = new string[cols];
                     for (int i = 0; i < names.Length; ++i)
-                        names[i] = String.Format("name{0}", i);
+                        names[i] = string.Format("name{0}", i);
                     ds.SetFeatureNames(names);
 
                     var outNames = ds.FeatureNames;

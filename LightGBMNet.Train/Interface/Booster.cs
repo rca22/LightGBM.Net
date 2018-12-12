@@ -292,7 +292,7 @@ namespace LightGBMNet.Train
         {
             return str.Split(delimiter)
                       .Select(s => double.TryParse(s.Replace("inf", "∞"), out double rslt) ? rslt : 
-                                    (s.Contains("nan") ? Double.NaN : throw new Exception($"Cannot parse as double: {s}")))
+                                    (s.Contains("nan") ? double.NaN : throw new Exception($"Cannot parse as double: {s}")))
                       .ToArray();
         }
 
@@ -301,30 +301,30 @@ namespace LightGBMNet.Train
             return str.Split(delimiter).Select(int.Parse).ToArray();
         }
 
-        private static UInt32[] Str2UIntArray(string str, char delimiter)
+        private static uint[] Str2UIntArray(string str, char delimiter)
         {
-            return str.Split(delimiter).Select(UInt32.Parse).ToArray();
+            return str.Split(delimiter).Select(uint.Parse).ToArray();
         }
 
-        private static bool GetIsDefaultLeft(UInt32 decisionType)
+        private static bool GetIsDefaultLeft(uint decisionType)
         {
             // The second bit.
             return (decisionType & 2) > 0;
         }
 
-        private static bool GetIsCategoricalSplit(UInt32 decisionType)
+        private static bool GetIsCategoricalSplit(uint decisionType)
         {
             // The first bit.
             return (decisionType & 1) > 0;
         }
 
-        private static bool GetHasMissing(UInt32 decisionType)
+        private static bool GetHasMissing(uint decisionType)
         {
             // The 3rd and 4th bits.
             return ((decisionType >> 2) & 3) > 0;
         }
 
-        private static double[] GetDefaultValue(double[] threshold, UInt32[] decisionType)
+        private static double[] GetDefaultValue(double[] threshold, uint[] decisionType)
         {
             var ret = new double[threshold.Length];
             for (int i = 0; i < threshold.Length; ++i)

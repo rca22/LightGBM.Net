@@ -4,6 +4,7 @@
 
 using System;
 using System.IO;
+using System.Collections.Generic;
 
 namespace LightGBMNet.Tree
 {       
@@ -47,8 +48,14 @@ namespace LightGBMNet.Tree
         {
             return SubPredictor.GetFeatureWeights(normalise, splits);
         }
+
+        public IEnumerable<double> GetFeatureGains(int feature)
+        {
+            return SubPredictor.GetFeatureGains(feature);
+        }
+
     }
-    
+
     public sealed class PlattCalibrator : ICalibrator
     {
         public double ParamA { get; }

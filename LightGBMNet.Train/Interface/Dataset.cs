@@ -214,9 +214,9 @@ namespace LightGBMNet.Train
         {
             Check.NonNull(fileName,nameof(fileName));
             if (!System.IO.File.Exists(fileName))
-                throw new ArgumentException(String.Format("File {0} does not exist", fileName));
+                throw new ArgumentException(string.Format("File {0} does not exist", fileName));
             if (!fileName.EndsWith(".bin"))
-                throw new ArgumentException(String.Format("File {0} is not a .bin file", fileName));
+                throw new ArgumentException(string.Format("File {0} is not a .bin file", fileName));
 
             var pmString = ParamsToString(cp, dp);
 
@@ -230,7 +230,7 @@ namespace LightGBMNet.Train
         {
             Check.NonNull(fileName,nameof(fileName));
             if (!fileName.EndsWith(".bin"))
-                throw new ArgumentException(String.Format("File {0} is not a .bin file", fileName));
+                throw new ArgumentException(string.Format("File {0} is not a .bin file", fileName));
 
             PInvokeException.Check(PInvoke.DatasetSaveBinary(_handle, fileName),
                                    nameof(PInvoke.DatasetSaveBinary));
@@ -292,10 +292,10 @@ namespace LightGBMNet.Train
         public unsafe void SetLabels(float[] labels)
         {
             if (labels == null)
-                throw new System.ArgumentNullException("labels");
+                throw new ArgumentNullException("labels");
 
             if (labels.Length != NumRows)
-                throw new System.ArgumentException("Expected labels to have a length equal to GetNumRows()", "labels");
+                throw new ArgumentException("Expected labels to have a length equal to GetNumRows()", "labels");
 
             fixed (float* ptr = labels)
                 PInvokeException.Check(PInvoke.DatasetSetField(_handle, "label", (IntPtr)ptr, labels.Length,
@@ -308,7 +308,7 @@ namespace LightGBMNet.Train
             if (weights != null)
             {
                 if (weights.Length != NumRows)
-                    throw new System.ArgumentException("Expected weights to have a length equal to GetNumRows()", "weights");
+                    throw new ArgumentException("Expected weights to have a length equal to GetNumRows()", "weights");
 
                 fixed (float* ptr = weights)
                     PInvokeException.Check(PInvoke.DatasetSetField(_handle, "weight", (IntPtr)ptr, weights.Length,
@@ -340,10 +340,10 @@ namespace LightGBMNet.Train
         public unsafe void SetInitScore(double[] initScores)
         {
             if (initScores == null)
-                throw new System.ArgumentNullException("initScores");
+                throw new ArgumentNullException("initScores");
 
             if (initScores.Length % NumRows != 0)
-                throw new System.ArgumentException("Expected initScores to have a length a multiple of GetNumRows()", "initScores");
+                throw new ArgumentException("Expected initScores to have a length a multiple of GetNumRows()", "initScores");
 
             fixed (double* ptr = initScores)
                 PInvokeException.Check(PInvoke.DatasetSetField(_handle, "init_score", (IntPtr)ptr, initScores.Length,
@@ -452,7 +452,7 @@ namespace LightGBMNet.Train
             return new Dataset(p);
         }
 
-        private static int MAX_FEATURE_NAME_LENGTH = 100;
+        private static readonly int MAX_FEATURE_NAME_LENGTH = 100;
 
         public void SetFeatureNames(string[] featureNames)
         {
@@ -516,7 +516,7 @@ namespace LightGBMNet.Train
             PInvokeException.Check(PInvoke.DatasetGetField(_handle, fieldName, ref outLen, ref ptr, ref typ),
                                     nameof(PInvoke.DatasetGetField));
             if (typ != PInvoke.CApiDType.Float32)
-                throw new Exception(String.Format("Field {0} is of type {1}", fieldName, typ));
+                throw new Exception(string.Format("Field {0} is of type {1}", fieldName, typ));
             if (ptr == IntPtr.Zero) return null;
             var rslts = new float[outLen];
             Marshal.Copy(ptr, rslts, 0, outLen);
@@ -540,7 +540,7 @@ namespace LightGBMNet.Train
             PInvokeException.Check(PInvoke.DatasetGetField(_handle, fieldName, ref outLen, ref ptr, ref typ),
                                     nameof(PInvoke.DatasetGetField));
             if (typ != PInvoke.CApiDType.Float64)
-                throw new Exception(String.Format("Field {0} is of type {1}", fieldName, typ));
+                throw new Exception(string.Format("Field {0} is of type {1}", fieldName, typ));
             if (ptr == IntPtr.Zero) return null;
             var rslts = new double[outLen];
             Marshal.Copy(ptr, rslts, 0, outLen);
@@ -560,7 +560,7 @@ namespace LightGBMNet.Train
             PInvokeException.Check(PInvoke.DatasetGetField(_handle, fieldName, ref outLen, ref ptr, ref typ),
                                     nameof(PInvoke.DatasetGetField));
             if (typ != PInvoke.CApiDType.Int32)
-                throw new Exception(String.Format("Field {0} is of type {1}", fieldName, typ));
+                throw new Exception(string.Format("Field {0} is of type {1}", fieldName, typ));
             if (ptr == IntPtr.Zero) return null;
             var rslts = new int[outLen];
             Marshal.Copy(ptr, rslts, 0, outLen);

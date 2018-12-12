@@ -224,7 +224,7 @@ namespace LightGBMNet.Train
                 case MetricType.Kldiv:
                     return "kldiv";
                 default:
-                    throw new System.Exception(String.Format("Unexpected value of MetricType {0}",m));
+                    throw new Exception(string.Format("Unexpected value of MetricType {0}",m));
             }
         }
 
@@ -305,7 +305,7 @@ namespace LightGBMNet.Train
                 case "kullback_leibler":
                     return MetricType.Kldiv;
                 default:
-                    throw new System.Exception(String.Format("Unexpected value of MetricType {0}",x));
+                    throw new Exception(string.Format("Unexpected value of MetricType {0}",x));
             }
         }
 
@@ -564,12 +564,12 @@ namespace LightGBMNet.Train
 
         private static ParseFunction CreateParseFunction(Type typ)
         {
-            if (typ == typeof(Int32))
-                return x => (object)Int32.Parse(x);
-            else if (typ == typeof(Int64))
-                return x => (object)Int64.Parse(x);
+            if (typ == typeof(int))
+                return x => (object)int.Parse(x);
+            else if (typ == typeof(long))
+                return x => (object)long.Parse(x);
             else if (typ == typeof(double))
-                return x => (object)Double.Parse(x);
+                return x => (object)double.Parse(x);
             else if (typ == typeof(float))
                 return x => (object)float.Parse(x);
             else if (typ == typeof(string))
@@ -577,14 +577,14 @@ namespace LightGBMNet.Train
             else if (typ == typeof(bool))
                 return x =>
                     {
-                        if (!Boolean.TryParse(x, out bool rslt))
-                            rslt = Convert.ToBoolean(Int32.Parse(x));
+                        if (!bool.TryParse(x, out bool rslt))
+                            rslt = Convert.ToBoolean(int.Parse(x));
                         return (object)rslt;
                     };
             else if (typ == typeof(int[]))
-                return x => x.Split(new char[] { ',' }).Select(Int32.Parse).ToArray();
+                return x => x.Split(new char[] { ',' }).Select(int.Parse).ToArray();
             else if (typ == typeof(double[]))
-                return x => x.Split(new char[] { ',' }).Select(Double.Parse).ToArray();
+                return x => x.Split(new char[] { ',' }).Select(double.Parse).ToArray();
             else if (typ == typeof(MetricType))
                 return x => (object)EnumHelper.ParseMetric(x);
           //else if (typ == typeof(TaskType))
@@ -600,14 +600,14 @@ namespace LightGBMNet.Train
             else if (typ == typeof(VerbosityType))
                 return x => (object)EnumHelper.ParseVerbosity(x);
             else
-                throw new Exception(String.Format("Unhandled parameter type {0}", typ));
+                throw new Exception(string.Format("Unhandled parameter type {0}", typ));
         }
 
         private static WriteFunction CreateWriteFunction(Type typ)
         {
-            if (typ == typeof(Int32))
+            if (typ == typeof(int))
                 return x => x.ToString();
-            else if (typ == typeof(Int64))
+            else if (typ == typeof(long))
                 return x => x.ToString();
             else if (typ == typeof(double))
                 return x => x.ToString();
@@ -618,9 +618,9 @@ namespace LightGBMNet.Train
             else if (typ == typeof(bool))
                 return x => ((bool)x) ? "true" : "false";
             else if (typ == typeof(int[]))
-                return x => String.Join(",", (x as int[]).Select(y => y.ToString()));
+                return x => string.Join(",", (x as int[]).Select(y => y.ToString()));
             else if (typ == typeof(double[]))
-                return x => String.Join(",", (x as double[]).Select(y => y.ToString()));
+                return x => string.Join(",", (x as double[]).Select(y => y.ToString()));
             else if (typ == typeof(MetricType))
                 return x => EnumHelper.GetMetricString((MetricType)x);
           //else if (typ == typeof(TaskType))
@@ -636,7 +636,7 @@ namespace LightGBMNet.Train
             else if (typ == typeof(VerbosityType))
                 return x => EnumHelper.GetVerbosityString((VerbosityType)x);
             else
-                throw new Exception(String.Format("Unhandled parameter type {0}", typ));
+                throw new Exception(string.Format("Unhandled parameter type {0}", typ));
         }
 
         // Converts a camel case name into an underscore separated lower-case name.
@@ -722,6 +722,8 @@ namespace LightGBMNet.Train
                 );
         }
 
+#pragma warning disable IDE0041 // Use 'is null' check
+
         public int GetHashCode(T x)
         {
             unchecked
@@ -731,7 +733,7 @@ namespace LightGBMNet.Train
                 {
                     hash *= 7;
                     var value = prop.GetValue(x);
-                    if (!object.ReferenceEquals(null, value)) {
+                    if (!ReferenceEquals(null, value)) {
                         if (prop.PropertyType.IsArray)
                             hash += ((IStructuralEquatable)value).GetHashCode(StructuralComparisons.StructuralEqualityComparer);
                         else
@@ -1021,16 +1023,16 @@ namespace LightGBMNet.Train
 
         public override bool Equals(object value)
         {
-            if (object.ReferenceEquals(null, value)) return false;
-            if (object.ReferenceEquals(this, value)) return true;
+            if (ReferenceEquals(null, value)) return false;
+            if (ReferenceEquals(this, value)) return true;
             if (value.GetType() != this.GetType()) return false;
             return _helper.Equal(this, (DatasetParameters)value);
         }
 
         public static bool operator ==(DatasetParameters t, DatasetParameters other)
         {
-            if (!object.ReferenceEquals(null, t)) return t.Equals(other);
-            else if (!object.ReferenceEquals(null, other)) return other.Equals(t);
+            if (!ReferenceEquals(null, t)) return t.Equals(other);
+            else if (!ReferenceEquals(null, other)) return other.Equals(t);
             else return true;
         }
 
@@ -1453,16 +1455,16 @@ namespace LightGBMNet.Train
 
         public override bool Equals(object value)
         {
-            if (object.ReferenceEquals(null, value)) return false;
-            if (object.ReferenceEquals(this, value)) return true;
+            if (ReferenceEquals(null, value)) return false;
+            if (ReferenceEquals(this, value)) return true;
             if (value.GetType() != this.GetType()) return false;
             return _helper.Equal(this, (LearningParameters)value);
         }
 
         public static bool operator ==(LearningParameters t, LearningParameters other)
         {
-            if (!object.ReferenceEquals(null, t)) return t.Equals(other);
-            else if (!object.ReferenceEquals(null, other)) return other.Equals(t);
+            if (!ReferenceEquals(null, t)) return t.Equals(other);
+            else if (!ReferenceEquals(null, other)) return other.Equals(t);
             else return true;
         }
 
@@ -1711,16 +1713,16 @@ namespace LightGBMNet.Train
 
         public override bool Equals(object value)
         {
-            if (object.ReferenceEquals(null, value)) return false;
-            if (object.ReferenceEquals(this, value)) return true;
+            if (ReferenceEquals(null, value)) return false;
+            if (ReferenceEquals(this, value)) return true;
             if (value.GetType() != this.GetType()) return false;
             return _helper.Equal(this, (ObjectiveParameters)value);
         }
 
         public static bool operator ==(ObjectiveParameters t, ObjectiveParameters other)
         {
-            if (!object.ReferenceEquals(null, t)) return t.Equals(other);
-            else if (!object.ReferenceEquals(null, other)) return other.Equals(t);
+            if (!ReferenceEquals(null, t)) return t.Equals(other);
+            else if (!ReferenceEquals(null, other)) return other.Equals(t);
             else return true;
         }
 
@@ -1862,16 +1864,16 @@ namespace LightGBMNet.Train
 
         public override bool Equals(object value)
         {
-            if (object.ReferenceEquals(null, value)) return false;
-            if (object.ReferenceEquals(this, value)) return true;
+            if (ReferenceEquals(null, value)) return false;
+            if (ReferenceEquals(this, value)) return true;
             if (value.GetType() != this.GetType()) return false;
             return _helper.Equal(this, (CommonParameters)value);
         }
 
         public static bool operator ==(CommonParameters t, CommonParameters other)
         {
-            if (!object.ReferenceEquals(null, t)) return t.Equals(other);
-            else if (!object.ReferenceEquals(null, other)) return other.Equals(t);
+            if (!ReferenceEquals(null, t)) return t.Equals(other);
+            else if (!ReferenceEquals(null, other)) return other.Equals(t);
             else return true;
         }
 
@@ -1931,18 +1933,18 @@ namespace LightGBMNet.Train
             unchecked
             {
                 int hash = 13;
-                hash = (hash * 7) + (!Object.ReferenceEquals(null, Common) ? Common.GetHashCode() : 0);
-                hash = (hash * 7) + (!Object.ReferenceEquals(null, Dataset) ? Dataset.GetHashCode() : 0);
-                hash = (hash * 7) + (!Object.ReferenceEquals(null, Objective) ? Objective.GetHashCode() : 0);
-                hash = (hash * 7) + (!Object.ReferenceEquals(null, Learning) ? Learning.GetHashCode() : 0);
+                hash = (hash * 7) + (!ReferenceEquals(null, Common) ? Common.GetHashCode() : 0);
+                hash = (hash * 7) + (!ReferenceEquals(null, Dataset) ? Dataset.GetHashCode() : 0);
+                hash = (hash * 7) + (!ReferenceEquals(null, Objective) ? Objective.GetHashCode() : 0);
+                hash = (hash * 7) + (!ReferenceEquals(null, Learning) ? Learning.GetHashCode() : 0);
                 return hash;
             }
         }
 
         public override bool Equals(object value)
         {
-            if (object.ReferenceEquals(null, value)) return false;
-            if (object.ReferenceEquals(this, value)) return true;
+            if (ReferenceEquals(null, value)) return false;
+            if (ReferenceEquals(this, value)) return true;
             if (value.GetType() != this.GetType()) return false;
             var that = (Parameters)value;
             return this.Common == that.Common &&
@@ -1953,8 +1955,8 @@ namespace LightGBMNet.Train
 
         public static bool operator ==(Parameters t, Parameters other)
         {
-            if (!object.ReferenceEquals(null, t)) return t.Equals(other);
-            else if (!object.ReferenceEquals(null, other)) return other.Equals(t);
+            if (!ReferenceEquals(null, t)) return t.Equals(other);
+            else if (!ReferenceEquals(null, other)) return other.Equals(t);
             else return true;
         }
 
@@ -1963,5 +1965,8 @@ namespace LightGBMNet.Train
             return !(t == other);
         }
         #endregion
+
+#pragma warning restore IDE0041 // Use 'is null' check
+
     }
 }

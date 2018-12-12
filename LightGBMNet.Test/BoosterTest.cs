@@ -12,7 +12,7 @@ namespace LightGBMNet.Train.Test
         [Fact]
         public void Create()
         {
-            var rand = new System.Random();
+            var rand = new Random();
             for (int test = 0; test < 100; ++test)
                 using (var dataSet = DatasetTest.CreateRandom(rand))
                 {
@@ -26,7 +26,7 @@ namespace LightGBMNet.Train.Test
         [Fact]
         public void ResetTrainingData()
         {
-            var rand = new System.Random();
+            var rand = new Random();
             for (int test = 0; test < 100; ++test)
                 using (var dataSet = DatasetTest.CreateRandom(rand))
                 {
@@ -49,7 +49,7 @@ namespace LightGBMNet.Train.Test
         [Fact]
         public void GetNumPredict_GetPredict()
         {
-            var rand = new System.Random();
+            var rand = new Random();
             for (int test = 0; test < 100; ++test)
                 using (var dataSet = DatasetTest.CreateRandom(rand))
                 {
@@ -71,7 +71,7 @@ namespace LightGBMNet.Train.Test
         [Fact]
         public void NumFeatures()
         {
-            var rand = new System.Random();
+            var rand = new Random();
             for (int test = 0; test < 100; ++test)
                 using (var dataSet = DatasetTest.CreateRandom(rand))
                 {
@@ -87,14 +87,14 @@ namespace LightGBMNet.Train.Test
         [Fact]
         public void FeatureNames()
         {
-            var rand = new System.Random();
+            var rand = new Random();
             for (int test = 0; test < 100; ++test)
                 using (var dataSet = DatasetTest.CreateRandom(rand))
                 {
                     var cols = dataSet.NumFeatures;
                     var names = new string[cols];
                     for (int i = 0; i < names.Length; ++i)
-                        names[i] = String.Format("name{0}", i);
+                        names[i] = string.Format("name{0}", i);
                     dataSet.SetFeatureNames(names);
 
                     var pms = new Parameters();
@@ -107,7 +107,7 @@ namespace LightGBMNet.Train.Test
         }
 
         private static MetricType[] _metricTypes = (MetricType[]) Enum.GetValues(typeof(MetricType));
-        private MetricType createRandomMetric(System.Random rand)
+        private MetricType CreateRandomMetric(Random rand)
         {
             return _metricTypes[rand.Next(0, _metricTypes.Length - 1)];
         }
@@ -115,12 +115,12 @@ namespace LightGBMNet.Train.Test
         [Fact]
         public void GetEvalCounts_GetEvalNames()
         {
-            var rand = new System.Random();
+            var rand = new Random();
             for (int test = 0; test < 100; ++test)
                 using (var dataSet = DatasetTest.CreateRandom(rand))
                 {
                     var pms = new Parameters();
-                    var metric = createRandomMetric(rand);
+                    var metric = CreateRandomMetric(rand);
                     if (metric != MetricType.Ndcg && metric != MetricType.Map && (pms.Objective.NumClass > 1 || (metric != MetricType.MultiLogLoss && metric != MetricType.MultiError)))
                     {
                         pms.Objective.Metric = metric;
@@ -144,7 +144,7 @@ namespace LightGBMNet.Train.Test
         [Fact]
         public void NumClasses()
         {
-            var rand = new System.Random();
+            var rand = new Random();
             for (int test = 0; test < 100; ++test)
                 using (var dataSet = DatasetTest.CreateRandom(rand))
                 {

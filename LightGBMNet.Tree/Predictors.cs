@@ -5,6 +5,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Collections.Generic;
 
 namespace LightGBMNet.Tree
 {
@@ -45,6 +46,7 @@ namespace LightGBMNet.Tree
     public interface IHaveFeatureWeights
     {
         FeatureToGainMap GetFeatureWeights(bool normalise = false, bool splits = false);
+        IEnumerable<double> GetFeatureGains(int feature);
     }
 
     public interface ITreeEnsemble
@@ -137,6 +139,11 @@ namespace LightGBMNet.Tree
         public FeatureToGainMap GetFeatureWeights(bool normalise = false, bool splits = false)
         {
             return new FeatureToGainMap(TrainedEnsemble.Trees.ToList(), normalise, splits);
+        }
+
+        public IEnumerable<double> GetFeatureGains(int feature)
+        {
+            return TrainedEnsemble.Trees.SelectMany(tree => tree.FeatureGains(feature));
         }
 
         private static int FindMaxFeatureIndex(Ensemble ensemble)

@@ -4,6 +4,7 @@
 
 using System;
 using System.Linq;
+using System.Collections.Generic;
 
 namespace LightGBMNet.Tree
 {
@@ -59,6 +60,11 @@ namespace LightGBMNet.Tree
                     gainMap[k] = gainMap[k] / numTrees;
             }
             return gainMap;            
+        }
+
+        public IEnumerable<double> GetFeatureGains(int feature)
+        {
+            return Predictors.SelectMany(tree => tree.GetFeatureGains(feature));
         }
 
         public void GetOutput(ref VBuffer<float> src, ref double [] dst)

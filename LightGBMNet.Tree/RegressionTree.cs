@@ -25,7 +25,7 @@ namespace LightGBMNet.Tree
         /// Array of categorical values for the categorical feature that might be chosen as 
         /// a split feature for a node.
         /// </summary>
-        public UInt32[] CategoricalThresholds { get; }
+        public uint[] CategoricalThresholds { get; }
         public int[] CategoricalBoundaries { get; }
         // These are the thresholds based on the raw feature values. Populated after training.
         public double[] RawThresholds { get; }
@@ -51,8 +51,8 @@ namespace LightGBMNet.Tree
         /// <summary>
         /// Create a Regression Tree object from raw tree contents.
         /// </summary>
-        public static RegressionTree Create(int numLeaves, int[] splitFeatures, Double[] splitGain,
-            double[] rawThresholds, double[] defaultValueForMissing, int[] lteChild, int[] gtChild, Double[] leafValues,
+        public static RegressionTree Create(int numLeaves, int[] splitFeatures, double[] splitGain,
+            double[] rawThresholds, double[] defaultValueForMissing, int[] lteChild, int[] gtChild, double[] leafValues,
             int[] categoricalBoundaries, uint[] categoricalThresholds, bool[] categoricalSplit)
         {
             if (numLeaves <= 1)
@@ -81,8 +81,8 @@ namespace LightGBMNet.Tree
             }
         }
 
-        internal RegressionTree(int[] splitFeatures, Double[] splitGains,
-            double[] rawThresholds, double[] defaultValueForMissing, int[] lteChild, int[] gtChild, Double[] leafValues,
+        internal RegressionTree(int[] splitFeatures, double[] splitGains,
+            double[] rawThresholds, double[] defaultValueForMissing, int[] lteChild, int[] gtChild, double[] leafValues,
             int[] categoricalBoundaries, uint[] categoricalThresholds, bool[] categoricalSplit)
         {
             CheckParam(Size(splitFeatures) > 0, nameof(splitFeatures), "Number of split features must be positive");
@@ -157,7 +157,7 @@ namespace LightGBMNet.Tree
                 writer.Write(val);
         }
 
-        public static void WriteDoubleArray(BinaryWriter writer, Double[] values)
+        public static void WriteDoubleArray(BinaryWriter writer, double[] values)
         {
             if (values == null)
             {
@@ -166,7 +166,7 @@ namespace LightGBMNet.Tree
             }
 
             writer.Write(values.Length);
-            foreach (Double val in values)
+            foreach (double val in values)
                 writer.Write(val);
         }
 
@@ -208,12 +208,12 @@ namespace LightGBMNet.Tree
             return values;
         }
 
-        private static Double[] ReadDoubleArray(BinaryReader reader)
+        private static double[] ReadDoubleArray(BinaryReader reader)
         {
             int size = reader.ReadInt32();
             if (size < 0) throw new FormatException();
             if (size == 0) return null;
-            var values = new Double[size];
+            var values = new double[size];
             for (int i = 0; i < size; i++)
                 values[i] = reader.ReadDouble();
             return values;
@@ -363,7 +363,7 @@ namespace LightGBMNet.Tree
             if (DefaultValueForMissing == null)
                 return x;
 
-            if (Double.IsNaN(x))
+            if (double.IsNaN(x))
             {
                 return DefaultValueForMissing[node];
             }
@@ -373,7 +373,7 @@ namespace LightGBMNet.Tree
             }
         }
 
-        private static bool FindInBitset(UInt32[] bits, int start, int end, int pos)
+        private static bool FindInBitset(uint[] bits, int start, int end, int pos)
         {
             int i1 = pos / 32;
             if (i1 >= end)
@@ -403,7 +403,7 @@ namespace LightGBMNet.Tree
                     int int_fval = (int)fv;
                     int cat_idx = (int)RawThresholds[node];
 
-                    if (int_fval >= 0 && !Double.IsNaN(fv) && FindInBitset(CategoricalThresholds, CategoricalBoundaries[cat_idx],
+                    if (int_fval >= 0 && !double.IsNaN(fv) && FindInBitset(CategoricalThresholds, CategoricalBoundaries[cat_idx],
                          CategoricalBoundaries[cat_idx + 1] - CategoricalBoundaries[cat_idx], int_fval))
                         node = LteChild[node];
                     else
@@ -451,7 +451,7 @@ namespace LightGBMNet.Tree
                     int int_fval = (int)val;
                     int cat_idx = (int)RawThresholds[node];
 
-                    if (int_fval >= 0 && !Double.IsNaN(val) && FindInBitset(CategoricalThresholds, CategoricalBoundaries[cat_idx],
+                    if (int_fval >= 0 && !double.IsNaN(val) && FindInBitset(CategoricalThresholds, CategoricalBoundaries[cat_idx],
                          CategoricalBoundaries[cat_idx + 1] - CategoricalBoundaries[cat_idx], int_fval))
                         node = LteChild[node];
                     else
@@ -491,6 +491,14 @@ namespace LightGBMNet.Tree
                     result[SplitFeatures[n]] += 1;
                 return result;
             }
+        }
+
+        public IEnumerable<double> FeatureGains(int feature)
+        {
+            int numNonLeaves = NumLeaves - 1;
+            for (int n = 0; n < numNonLeaves; ++n)
+                if (feature == SplitFeatures[n])
+                    yield return SplitGains[n];
         }
 
         #region check helpers

@@ -104,7 +104,7 @@ namespace LightGBMNet.Train.Test
                 {
                     if (useMissing && rand.Next(50) == 0)
                     {
-                        row[j] = Single.NaN;
+                        row[j] = float.NaN;
                     }
                     else
                     {
@@ -288,11 +288,20 @@ namespace LightGBMNet.Train.Test
                             //throw new Exception($"Output mismatch {output} vs {output3[0]} (error: {Math.Abs(output - output3[0])}) input: {String.Join(", ", row)}");
                         }
 
-                        var gains = model.GetFeatureWeights(rand.Next(2) == 0, rand.Next(2) == 0);
+                        var normalise = rand.Next(2) == 0;
+                        var getSplits = rand.Next(2) == 0;
+                        var gains = model.GetFeatureWeights(normalise, getSplits);
                         foreach (var kv in gains)
                         {
                             Assert.True(0 <= kv.Key && kv.Key < trainData.NumColumns);
                             Assert.True(0.0 <= kv.Value);
+                        }
+
+                        if (!getSplits && !normalise)
+                        {
+                            var totGain1 = gains.Values.Sum();
+                            var totGain2 = Enumerable.Range(0, trainData.NumColumns).SelectMany(i => model.GetFeatureGains(i)).Sum();
+                            Compare(totGain1, totGain2);
                         }
                     }
                 }
@@ -410,11 +419,20 @@ namespace LightGBMNet.Train.Test
                             }
                         }
 
-                        var gains = model.GetFeatureWeights(rand.Next(2) == 0, rand.Next(2) == 0);
+                        var normalise = rand.Next(2) == 0;
+                        var getSplits = rand.Next(2) == 0;
+                        var gains = model.GetFeatureWeights(normalise, getSplits);
                         foreach (var kv in gains)
                         {
                             Assert.True(0 <= kv.Key && kv.Key < trainData.NumColumns);
                             Assert.True(0.0 <= kv.Value);
+                        }
+
+                        if (!getSplits && !normalise)
+                        {
+                            var totGain1 = gains.Values.Sum();
+                            var totGain2 = Enumerable.Range(0, trainData.NumColumns).SelectMany(i => model.GetFeatureGains(i)).Sum();
+                            Compare(totGain1, totGain2);
                         }
                     }
                 }
@@ -503,7 +521,7 @@ namespace LightGBMNet.Train.Test
                             double output = 0;
                             var input = new VBuffer<float>(row.Length, row);
                             model.GetOutput(ref input, ref output);
-                            Assert.False(Double.IsNaN(output));
+                            Assert.False(double.IsNaN(output));
 
                             double output2 = 0;
                             model2.GetOutput(ref input, ref output2);
@@ -516,11 +534,20 @@ namespace LightGBMNet.Train.Test
                             //throw new Exception($"Output mismatch {output} vs {output3[0]} (error: {Math.Abs(output - output3[0])}) input: {String.Join(", ", row)}");
                         }
 
-                        var gains = model.GetFeatureWeights(rand.Next(2) == 0, rand.Next(2) == 0);
+                        var normalise = rand.Next(2) == 0;
+                        var getSplits = rand.Next(2) == 0;
+                        var gains = model.GetFeatureWeights(normalise, getSplits);
                         foreach (var kv in gains)
                         {
                             Assert.True(0 <= kv.Key && kv.Key < trainData.NumColumns);
                             Assert.True(0.0 <= kv.Value);
+                        }
+
+                        if (!getSplits && !normalise)
+                        {
+                            var totGain1 = gains.Values.Sum();
+                            var totGain2 = Enumerable.Range(0, trainData.NumColumns).SelectMany(i => model.GetFeatureGains(i)).Sum();
+                            Compare(totGain1, totGain2);
                         }
                     }
                 }
@@ -608,11 +635,20 @@ namespace LightGBMNet.Train.Test
                             //throw new Exception($"Output mismatch {output} vs {output3[0]} (error: {Math.Abs(output - output3[0])}) input: {String.Join(", ", row)}");
                         }
 
-                        var gains = model.GetFeatureWeights(rand.Next(2) == 0, rand.Next(2) == 0);
+                        var normalise = rand.Next(2) == 0;
+                        var getSplits = rand.Next(2) == 0;
+                        var gains = model.GetFeatureWeights(normalise, getSplits);
                         foreach (var kv in gains)
                         {
                             Assert.True(0 <= kv.Key && kv.Key < trainData.NumColumns);
                             Assert.True(0.0 <= kv.Value);
+                        }
+
+                        if (!getSplits && !normalise)
+                        {
+                            var totGain1 = gains.Values.Sum();
+                            var totGain2 = Enumerable.Range(0, trainData.NumColumns).SelectMany(i => model.GetFeatureGains(i)).Sum();
+                            Compare(totGain1, totGain2);
                         }
                     }
                 }
