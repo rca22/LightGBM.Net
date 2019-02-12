@@ -251,6 +251,14 @@ namespace LightGBMNet.Train.Test
                         var model = trainer.Train(datasets, learningRateSchedule);
                         model.MaxThreads = rand.Next(1, Environment.ProcessorCount);
 
+                        // possibly use subset of trees
+                        var numIterations = -1;
+                        if (rand.Next(2) == 0)
+                        {
+                            numIterations = rand.Next(1, model.MaxNumTrees);
+                            model.MaxNumTrees = numIterations;
+                        }
+
                         CalibratedPredictor model2 = null;
                         using (var ms = new System.IO.MemoryStream())
                         using (var writer = new System.IO.BinaryWriter(ms))
@@ -262,11 +270,11 @@ namespace LightGBMNet.Train.Test
                             Assert.Equal(ms.Position, ms.Length);
                         }
 
-                        var rawscore2s = trainer.Evaluate(Booster.PredictType.RawScore, trainData.Features);
+                        var rawscore2s = trainer.Evaluate(Booster.PredictType.RawScore, trainData.Features, numIterations);
                         Assert.Equal(trainData.Features.Length, rawscore2s.GetLength(0));
                         Assert.Equal(1, rawscore2s.GetLength(1));
 
-                        var output3s = trainer.Evaluate(Booster.PredictType.Normal, trainData.Features);
+                        var output3s = trainer.Evaluate(Booster.PredictType.Normal, trainData.Features, numIterations);
                         Assert.Equal(trainData.Features.Length, output3s.GetLength(0));
                         Assert.Equal(1, output3s.GetLength(1));
 
@@ -287,13 +295,13 @@ namespace LightGBMNet.Train.Test
                             // check raw score against native booster object
                             var rawscore = 0.0;
                             (model as CalibratedPredictor).SubPredictor.GetOutput(ref input, ref rawscore);
-                            var rawscore2 = trainer.Evaluate(Booster.PredictType.RawScore, row);
+                            var rawscore2 = trainer.Evaluate(Booster.PredictType.RawScore, row, numIterations);
                             Assert.Single(rawscore2);
                             Assert.Equal(rawscore2[0], rawscore2s[i,0]);
                             var isRf = (pms.Learning.Boosting == BoostingType.RandomForest);
                             Compare(isRf ? rawscore * model.MaxNumTrees : rawscore, rawscore2[0]);
 
-                            var output3 = trainer.Evaluate(Booster.PredictType.Normal, row);
+                            var output3 = trainer.Evaluate(Booster.PredictType.Normal, row, numIterations);
                             Assert.Single(output3);
                             Assert.Equal(output3[0], output3s[i,0]);
                             Compare(output, output3[0]);
@@ -356,6 +364,14 @@ namespace LightGBMNet.Train.Test
                         var model = trainer.Train(datasets, learningRateSchedule);
                         model.MaxThreads = rand.Next(1, Environment.ProcessorCount);
 
+                        // possibly use subset of trees
+                        var numIterations = -1;
+                        if (rand.Next(2) == 0)
+                        {
+                            numIterations = rand.Next(1, model.MaxNumTrees);
+                            model.MaxNumTrees = numIterations;
+                        }
+
                         OvaPredictor model2 = null;
                         using (var ms = new System.IO.MemoryStream())
                         using (var writer = new System.IO.BinaryWriter(ms))
@@ -367,11 +383,11 @@ namespace LightGBMNet.Train.Test
                             Assert.Equal(ms.Position, ms.Length);
                         }
 
-                        var rawscore3s = trainer.Evaluate(Booster.PredictType.RawScore, trainData.Features);
+                        var rawscore3s = trainer.Evaluate(Booster.PredictType.RawScore, trainData.Features, numIterations);
                         Assert.Equal(trainData.Features.Length, rawscore3s.GetLength(0));
                         Assert.Equal(pms.Objective.NumClass, rawscore3s.GetLength(1));
 
-                        var output3s = trainer.Evaluate(Booster.PredictType.Normal, trainData.Features);
+                        var output3s = trainer.Evaluate(Booster.PredictType.Normal, trainData.Features, numIterations);
                         Assert.Equal(trainData.Features.Length, output3s.GetLength(0));
                         Assert.Equal(pms.Objective.NumClass, output3s.GetLength(1));
 
@@ -408,7 +424,7 @@ namespace LightGBMNet.Train.Test
                                     p.GetOutput(ref input, ref outputi);
                                 return (outputi, p.MaxNumTrees);
                             }).ToArray();
-                            var rawscores3 = trainer.Evaluate(Booster.PredictType.RawScore, row);
+                            var rawscores3 = trainer.Evaluate(Booster.PredictType.RawScore, row, numIterations);
                             Assert.Equal(pms.Objective.NumClass, rawscores.Length);
                             Assert.Equal(pms.Objective.NumClass, rawscores3.Length);
                             for (var i = 0; i < rawscores.Length; i++)
@@ -421,7 +437,7 @@ namespace LightGBMNet.Train.Test
                             //throw new Exception($"Raw score mismatch at row {irow}: {rawscores[i]} vs {rawscores3[i]} (error: {Math.Abs(rawscores[i] - rawscores3[i])}) input: {String.Join(", ", row)}");
 
                             // check probabilities against native booster object
-                            var output3 = trainer.Evaluate(Booster.PredictType.Normal, row);
+                            var output3 = trainer.Evaluate(Booster.PredictType.Normal, row, numIterations);
                             for (var i = 0; i < output3.Length; i++)
                                 Assert.Equal(output3s[irow, i], output3[i]);
 
@@ -523,6 +539,14 @@ namespace LightGBMNet.Train.Test
                         var model = trainer.Train(datasets, learningRateSchedule);
                         model.MaxThreads = rand.Next(1, Environment.ProcessorCount);
 
+                        // possibly use subset of trees
+                        var numIterations = -1;
+                        if (rand.Next(2) == 0)
+                        {
+                            numIterations = rand.Next(1, model.MaxNumTrees);
+                            model.MaxNumTrees = numIterations;
+                        }
+
                         IPredictorWithFeatureWeights<double> model2 = null;
                         using (var ms = new System.IO.MemoryStream())
                         using (var writer = new System.IO.BinaryWriter(ms))
@@ -534,7 +558,7 @@ namespace LightGBMNet.Train.Test
                             Assert.Equal(ms.Position, ms.Length);
                         }
 
-                        var output3s = trainer.Evaluate(Booster.PredictType.Normal, trainData.Features);
+                        var output3s = trainer.Evaluate(Booster.PredictType.Normal, trainData.Features, numIterations);
                         Assert.Equal(trainData.Features.Length, output3s.GetLength(0));
                         Assert.Equal(1, output3s.GetLength(1));
 
@@ -551,7 +575,7 @@ namespace LightGBMNet.Train.Test
                             model2.GetOutput(ref input, ref output2);
                             Compare(output, output2);
 
-                            var output3 = trainer.Evaluate(Booster.PredictType.Normal, row);
+                            var output3 = trainer.Evaluate(Booster.PredictType.Normal, row, numIterations);
                             Assert.Single(output3);
                             Assert.Equal(output3[0], output3s[i, 0]);
                             Compare(output, output3[0]);
@@ -631,6 +655,14 @@ namespace LightGBMNet.Train.Test
                         var model = trainer.Train(datasets, learningRateSchedule);
                         model.MaxThreads = rand.Next(1, Environment.ProcessorCount);
 
+                        // possibly use subset of trees
+                        var numIterations = -1;
+                        if (rand.Next(2) == 0)
+                        {
+                            numIterations = rand.Next(1, model.MaxNumTrees);
+                            model.MaxNumTrees = numIterations;
+                        }
+
                         RankingPredictor model2 = null;
                         using (var ms = new System.IO.MemoryStream())
                         using (var writer = new System.IO.BinaryWriter(ms))
@@ -642,7 +674,7 @@ namespace LightGBMNet.Train.Test
                             Assert.Equal(ms.Position, ms.Length);
                         }
 
-                        var output3s = trainer.Evaluate(Booster.PredictType.Normal, trainData.Features);
+                        var output3s = trainer.Evaluate(Booster.PredictType.Normal, trainData.Features, numIterations);
                         Assert.Equal(trainData.Features.Length, output3s.GetLength(0));
                         Assert.Equal(1, output3s.GetLength(1));
 
@@ -659,7 +691,7 @@ namespace LightGBMNet.Train.Test
                             model2.GetOutput(ref input, ref output2);
                             Compare(output, output2);
 
-                            var output3 = trainer.Evaluate(Booster.PredictType.Normal, row);
+                            var output3 = trainer.Evaluate(Booster.PredictType.Normal, row, numIterations);
                             Assert.Single(output3);
                             Assert.Equal(output3[0], output3s[i, 0]);
                             Compare(output, output3[0]);
