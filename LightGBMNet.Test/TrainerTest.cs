@@ -21,7 +21,7 @@ namespace LightGBMNet.Train.Test
         private static BoostingType [] boostingTypes =
             new BoostingType[] {
                 BoostingType.GBDT,
-                BoostingType.RandomForest,  // TODO: wtf
+                BoostingType.RandomForest,
                 BoostingType.Dart,
                 BoostingType.Goss
             };
@@ -246,6 +246,8 @@ namespace LightGBMNet.Train.Test
                                                                 new Datasets(pms.Common, pms.Dataset, Dense2Sparse(trainData), Dense2Sparse(validData)))
                     using (var trainer = new BinaryTrainer(pms.Learning, pms.Objective))
                     {
+                      //trainer.ToCommandLineFiles(datasets);
+
                         var model = trainer.Train(datasets, learningRateSchedule);
                         model.MaxThreads = rand.Next(1, Environment.ProcessorCount);
 
@@ -260,8 +262,18 @@ namespace LightGBMNet.Train.Test
                             Assert.Equal(ms.Position, ms.Length);
                         }
 
-                        foreach (var row in trainData.Features)
+                        var rawscore2s = trainer.Evaluate(Booster.PredictType.RawScore, trainData.Features);
+                        Assert.Equal(trainData.Features.Length, rawscore2s.GetLength(0));
+                        Assert.Equal(1, rawscore2s.GetLength(1));
+
+                        var output3s = trainer.Evaluate(Booster.PredictType.Normal, trainData.Features);
+                        Assert.Equal(trainData.Features.Length, output3s.GetLength(0));
+                        Assert.Equal(1, output3s.GetLength(1));
+
+                        for (int i=0; i<trainData.Features.Length; i++)
                         {
+                            var row = trainData.Features[i];
+
                             double output = 0;
                             var input = new VBuffer<float>(row.Length, row);
                             model.GetOutput(ref input, ref output);
@@ -277,12 +289,14 @@ namespace LightGBMNet.Train.Test
                             (model as CalibratedPredictor).SubPredictor.GetOutput(ref input, ref rawscore);
                             var rawscore2 = trainer.Evaluate(Booster.PredictType.RawScore, row);
                             Assert.Single(rawscore2);
+                            Assert.Equal(rawscore2[0], rawscore2s[i,0]);
                             var isRf = (pms.Learning.Boosting == BoostingType.RandomForest);
                             Compare(isRf ? rawscore * model.MaxNumTrees : rawscore, rawscore2[0]);
 
                             var output3 = trainer.Evaluate(Booster.PredictType.Normal, row);
                             Assert.Single(output3);
-                            Compare(isRf ? rawscore : output, output3[0]);
+                            Assert.Equal(output3[0], output3s[i,0]);
+                            Compare(output, output3[0]);
 
                             //Console.WriteLine(trainer.GetModelString());
                             //throw new Exception($"Output mismatch {output} vs {output3[0]} (error: {Math.Abs(output - output3[0])}) input: {String.Join(", ", row)}");
@@ -353,6 +367,14 @@ namespace LightGBMNet.Train.Test
                             Assert.Equal(ms.Position, ms.Length);
                         }
 
+                        var rawscore3s = trainer.Evaluate(Booster.PredictType.RawScore, trainData.Features);
+                        Assert.Equal(trainData.Features.Length, rawscore3s.GetLength(0));
+                        Assert.Equal(pms.Objective.NumClass, rawscore3s.GetLength(1));
+
+                        var output3s = trainer.Evaluate(Booster.PredictType.Normal, trainData.Features);
+                        Assert.Equal(trainData.Features.Length, output3s.GetLength(0));
+                        Assert.Equal(pms.Objective.NumClass, output3s.GetLength(1));
+
                         for (var irow = 0; irow < trainData.Features.Length; irow++)
                         {
                             var row = trainData.Features[irow];
@@ -393,13 +415,17 @@ namespace LightGBMNet.Train.Test
                             {
                                 (var rawscore, var numTrees) = rawscores[i];
                                 Compare(isRf ? rawscore * numTrees : rawscore, rawscores3[i]);
+                                Assert.Equal(rawscores3[i], rawscore3s[irow, i]);
                             }
                             //Console.WriteLine(trainer.GetModelString());
                             //throw new Exception($"Raw score mismatch at row {irow}: {rawscores[i]} vs {rawscores3[i]} (error: {Math.Abs(rawscores[i] - rawscores3[i])}) input: {String.Join(", ", row)}");
 
                             // check probabilities against native booster object
                             var output3 = trainer.Evaluate(Booster.PredictType.Normal, row);
-                            if (objective == ObjectiveType.MultiClassOva && !isRf)
+                            for (var i = 0; i < output3.Length; i++)
+                                Assert.Equal(output3s[irow, i], output3[i]);
+
+                            if (objective == ObjectiveType.MultiClassOva)
                             {
                                 // booster object doesn't return normalised probabilities for OVA
                                 var sum = output3.Sum();
@@ -408,15 +434,7 @@ namespace LightGBMNet.Train.Test
                             }
                             Assert.Equal(pms.Objective.NumClass, output3.Length);
                             for (var i = 0; i < output3.Length; i++)
-                            {
-                                if (isRf)
-                                {
-                                    (var rawscore, var numTrees) = rawscores[i];
-                                    Assert.Equal(rawscore, output3[i], 3);
-                                }
-                                else
-                                    Assert.Equal(output[i], output3[i], 3);
-                            }
+                                Assert.Equal(output[i], output3[i], 3);
                         }
 
                         var normalise = rand.Next(2) == 0;
@@ -516,8 +534,14 @@ namespace LightGBMNet.Train.Test
                             Assert.Equal(ms.Position, ms.Length);
                         }
 
-                        foreach (var row in trainData.Features)
+                        var output3s = trainer.Evaluate(Booster.PredictType.Normal, trainData.Features);
+                        Assert.Equal(trainData.Features.Length, output3s.GetLength(0));
+                        Assert.Equal(1, output3s.GetLength(1));
+
+                        for (int i = 0; i < trainData.Features.Length; i++)
                         {
+                            var row = trainData.Features[i];
+
                             double output = 0;
                             var input = new VBuffer<float>(row.Length, row);
                             model.GetOutput(ref input, ref output);
@@ -529,6 +553,7 @@ namespace LightGBMNet.Train.Test
 
                             var output3 = trainer.Evaluate(Booster.PredictType.Normal, row);
                             Assert.Single(output3);
+                            Assert.Equal(output3[0], output3s[i, 0]);
                             Compare(output, output3[0]);
                             //Console.WriteLine(trainer.GetModelString());
                             //throw new Exception($"Output mismatch {output} vs {output3[0]} (error: {Math.Abs(output - output3[0])}) input: {String.Join(", ", row)}");
@@ -617,8 +642,14 @@ namespace LightGBMNet.Train.Test
                             Assert.Equal(ms.Position, ms.Length);
                         }
 
-                        foreach (var row in trainData.Features)
+                        var output3s = trainer.Evaluate(Booster.PredictType.Normal, trainData.Features);
+                        Assert.Equal(trainData.Features.Length, output3s.GetLength(0));
+                        Assert.Equal(1, output3s.GetLength(1));
+
+                        for (int i = 0; i < trainData.Features.Length; i++)
                         {
+                            var row = trainData.Features[i];
+
                             double output = 0;
                             var input = new VBuffer<float>(row.Length, row);
                             model.GetOutput(ref input, ref output);
@@ -630,6 +661,7 @@ namespace LightGBMNet.Train.Test
 
                             var output3 = trainer.Evaluate(Booster.PredictType.Normal, row);
                             Assert.Single(output3);
+                            Assert.Equal(output3[0], output3s[i, 0]);
                             Compare(output, output3[0]);
                             //Console.WriteLine(trainer.GetModelString());
                             //throw new Exception($"Output mismatch {output} vs {output3[0]} (error: {Math.Abs(output - output3[0])}) input: {String.Join(", ", row)}");
@@ -655,6 +687,46 @@ namespace LightGBMNet.Train.Test
                 catch (Exception e)
                 {
                     throw new Exception($"Failed: {Seed} #{test} {pms}", e);
+                }
+            }
+        }
+
+        //[Fact]
+        public void BenchmarkBinary()
+        {
+            var rand = new Random(Seed);
+            for (int test = 0; test < 3; ++test)
+            {
+                for (int gpu = 0; gpu < 2; gpu++)
+                {
+                    int numColumns = 500 * (test + 1);
+                    var pms = new Parameters();
+                    pms.Objective.Objective = ObjectiveType.Binary;
+                    pms.Dataset.MaxBin = 63;
+                    pms.Learning.LearningRate = 1e-3;
+                    pms.Learning.NumIterations = 100;
+                    pms.Common.DeviceType = (gpu > 0) ? DeviceType.GPU : DeviceType.CPU;
+
+                    var categorical = new Dictionary<int, int>();   // i.e., no cat
+                    var trainData = CreateRandomDenseClassifyData(rand, 2, ref categorical, pms.Dataset.UseMissing, numColumns);
+                    DataDense validData = null;
+                    pms.Dataset.CategoricalFeature = categorical.Keys.ToArray();
+
+                    try
+                    {
+                        using (var datasets = new Datasets(pms.Common, pms.Dataset, trainData, validData))
+                        using (var trainer = new BinaryTrainer(pms.Learning, pms.Objective))
+                        {
+                            var timer = System.Diagnostics.Stopwatch.StartNew();
+                            var model = trainer.Train(datasets);
+                            var elapsed = timer.Elapsed;
+                            Console.WriteLine($"{pms.Common.DeviceType}: NumCols={numColumns} MaxNumTrees={model.MaxNumTrees} TrainTimeSecs={elapsed.TotalSeconds}");
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        throw new Exception($"Failed: {Seed} #{test} {pms}", e);
+                    }
                 }
             }
         }

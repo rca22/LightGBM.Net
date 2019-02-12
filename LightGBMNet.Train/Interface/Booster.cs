@@ -484,8 +484,11 @@ namespace LightGBMNet.Train
             PInvokeException.Check(PInvoke.BoosterShuffleModels(Handle), nameof(PInvoke.BoosterShuffleModels));
         }
 
-        public unsafe double [] PredictForMat(PredictType predictType, float [] data)
+        public unsafe double [] PredictForMat(PredictType predictType, float [] data, int numIteration = -1)
         {
+            if (predictType == PredictType.LeafIndex)
+                    throw new NotImplementedException("TODO: PredictType.LeafIndex");
+
             long outLen = NumClasses; // TODO
             double[] outResult = new double[outLen];
             fixed (double* ptr = outResult)
@@ -495,11 +498,31 @@ namespace LightGBMNet.Train
                                                                    , /*nCol*/data.Length
                                                                    , /*isRowMajor*/true
                                                                    , (PInvoke.CApiPredictType)predictType
-                                                                   , /*numIteration*/BestIteration
+                                                                   , (numIteration == -1) ? BestIteration : numIteration
                                                                    , ""
                                                                    , ref outLen
                                                                    , ptr
                                                                    ), nameof(PInvoke.BoosterPredictForMat));
+            return outResult;
+        }
+
+        public unsafe double[,] PredictForMats(PredictType predictType, float[][] data, int numIteration = -1)
+        {
+            if (predictType == PredictType.LeafIndex)
+                throw new NotImplementedException("TODO: PredictType.LeafIndex");
+
+            var outResult = new double[data.Length, NumClasses];
+            if (data.Length > 0)
+            {
+                PInvokeException.Check(PInvoke.BoosterPredictForMats(Handle
+                                                                    , data
+                                                                    , /*nCol*/ data[0].Length
+                                                                    , (PInvoke.CApiPredictType)predictType
+                                                                    , (numIteration == -1) ? BestIteration : numIteration
+                                                                    , ""
+                                                                    , outResult
+                                                                    ), nameof(PInvoke.BoosterPredictForMats));
+            }
             return outResult;
         }
 

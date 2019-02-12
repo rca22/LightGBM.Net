@@ -273,10 +273,23 @@ namespace LightGBMNet.Train
         /// <param name="predictType"></param>
         /// <param name="row"></param>
         /// <returns></returns>
-        public double [] Evaluate(Booster.PredictType predictType, float[] row)
+        public double [] Evaluate(Booster.PredictType predictType, float[] row, int numIteration = -1)
         {
-            if (Booster == null) throw new Exception("Model has not be trained");
-            var rslt = Booster.PredictForMat(predictType, row);
+            if (Booster == null) throw new Exception("Model has not been trained");
+            var rslt = Booster.PredictForMat(predictType, row, numIteration);
+            return rslt;
+        }
+
+        /// <summary>
+        /// Evaluates the native LightGBM model on the given feature vector
+        /// </summary>
+        /// <param name="predictType"></param>
+        /// <param name="row"></param>
+        /// <returns></returns>
+        public double[,] Evaluate(Booster.PredictType predictType, float[][] rows, int numIteration = -1)
+        {
+            if (Booster == null) throw new Exception("Model has not been trained");
+            var rslt = Booster.PredictForMats(predictType, rows, numIteration);
             return rslt;
         }
 

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 namespace LightGBMNet.Train
@@ -939,6 +940,19 @@ namespace LightGBMNet.Train
             ref long outLen,
             double* outResult);
 
+        [DllImport(DllName, EntryPoint = "LGBM_BoosterPredictForMats", CallingConvention = CallingConvention.StdCall)]
+        private static extern unsafe int BoosterPredictForMats(
+            IntPtr handle,
+            float** data,
+            CApiDType dataType,
+            int nRow,
+            int nCol,
+            CApiPredictType predictType,
+            int numIteration,
+            [MarshalAs(UnmanagedType.LPStr)] string parameter,
+            ref long outLen,
+            double* outResult);
+
         public static unsafe int BoosterPredictForMat(
             IntPtr handle,
             float[] data,
@@ -958,6 +972,47 @@ namespace LightGBMNet.Train
                     nRow, nCol,
                     (isRowMajor ? 1 : 0),
                     predictType, numIteration, parameter, ref outLen, outResult);
+        }
+
+        public static unsafe int BoosterPredictForMats(
+            IntPtr handle,
+            float[][] data,
+            int nCol,
+            CApiPredictType predictType,
+            int numIteration,
+            [MarshalAs(UnmanagedType.LPStr)] string parameter,
+            double[,] outResult)
+        {
+            var gcHandles = new List<GCHandle>(data.Length+1);
+            try
+            {
+                float*[] dataPtrs = new float*[data.Length];
+                for (int i = 0; i < data.Length; i++)
+                {
+                    var hdl = GCHandle.Alloc(data[i], GCHandleType.Pinned);
+                    gcHandles.Add(hdl);
+                    dataPtrs[i] = (float*)hdl.AddrOfPinnedObject().ToPointer();
+                };
+                var hdlout = GCHandle.Alloc(outResult, GCHandleType.Pinned);
+                gcHandles.Add(hdlout);
+                long outLen = outResult.GetLength(0) * outResult.GetLength(1);
+
+                fixed (float** dataPtr = dataPtrs)
+                    return BoosterPredictForMats(
+                        handle,
+                        dataPtr, CApiDType.Float32,
+                        data.Length, nCol,
+                        predictType, numIteration, parameter, ref outLen,
+                        (double*)hdlout.AddrOfPinnedObject().ToPointer());
+            }
+            finally
+            {
+                foreach (var hdl in gcHandles)
+                {
+                    if (hdl.IsAllocated)
+                        hdl.Free();
+                };
+            }
         }
 
         /// <summary>
