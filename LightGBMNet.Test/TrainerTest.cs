@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
+using Xunit.Abstractions;
 using LightGBMNet.Train;
 using LightGBMNet.Tree;
 
@@ -9,6 +10,13 @@ namespace LightGBMNet.Train.Test
 {
     public class TrainerTest
     {
+        private readonly ITestOutputHelper output;
+
+        public TrainerTest(ITestOutputHelper output)
+        {
+            this.output = output;
+        }
+
         private static void Compare(double x, double y)
         {
             if (x == y || double.IsNaN(x) && double.IsNaN(y))
@@ -759,6 +767,50 @@ namespace LightGBMNet.Train.Test
                     {
                         throw new Exception($"Failed: {Seed} #{test} {pms}", e);
                     }
+                }
+            }
+        }
+
+        //[Fact]
+        public void BenchmarkEval()
+        {
+            var rand = new Random(Seed);
+            int numColumns = 100;
+            var pms = new Parameters();
+            pms.Objective.Objective = ObjectiveType.Binary;
+            pms.Dataset.MaxBin = 63;
+            pms.Learning.LearningRate = 1e-3;
+            pms.Learning.NumIterations = 1000;
+            pms.Common.DeviceType = DeviceType.CPU;
+
+            var categorical = new Dictionary<int, int>();   // i.e., no cat
+            var trainData = CreateRandomDenseClassifyData(rand, 2, ref categorical, pms.Dataset.UseMissing, numColumns);
+            DataDense validData = null;
+            pms.Dataset.CategoricalFeature = categorical.Keys.ToArray();
+
+            using (var datasets = new Datasets(pms.Common, pms.Dataset, trainData, validData))
+            using (var trainer = new BinaryTrainer(pms.Learning, pms.Objective))
+            {
+                var model = trainer.Train(datasets);
+                output.WriteLine($"MaxNumTrees={model.MaxNumTrees}");
+
+                var timer = System.Diagnostics.Stopwatch.StartNew();
+                trainer.Evaluate(Booster.PredictType.Normal, trainData.Features);
+                var elapsed1 = timer.Elapsed;
+                output.WriteLine($"EvalNative={elapsed1.TotalMilliseconds}");
+
+                foreach (var maxThreads in new int[] { 1, 2, 4, 8, 16, 32, Environment.ProcessorCount})
+                {
+                    model.MaxThreads = maxThreads;
+                    timer.Restart();
+                    foreach (var row in trainData.Features)
+                    {
+                        double output = 0;
+                        var input = new VBuffer<float>(row.Length, row);
+                        model.GetOutput(ref input, ref output);
+                    }
+                    var elapsed2 = timer.Elapsed;
+                    output.WriteLine($"MaxThreads={maxThreads} EvalManaged={elapsed2.TotalMilliseconds}");
                 }
             }
         }

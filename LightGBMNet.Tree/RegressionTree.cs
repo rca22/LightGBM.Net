@@ -359,18 +359,10 @@ namespace LightGBMNet.Tree
 
         private double GetFeatureValue(double x, int node)
         {
-            // Not need to convert missing vaules.
-            if (DefaultValueForMissing == null)
-                return x;
-
-            if (double.IsNaN(x))
-            {
+            if (DefaultValueForMissing != null && double.IsNaN(x))
                 return DefaultValueForMissing[node];
-            }
             else
-            {
                 return x;
-            }
         }
 
         private static bool FindInBitset(uint[] bits, int start, int end, int pos)
