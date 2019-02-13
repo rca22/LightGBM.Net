@@ -123,6 +123,17 @@ namespace LightGBMNet.Train.Test
                     var metric = CreateRandomMetric(rand);
                     if (metric != MetricType.Ndcg && metric != MetricType.Map && (pms.Objective.NumClass > 1 || (metric != MetricType.MultiLogLoss && metric != MetricType.MultiError)))
                     {
+                        if (metric == MetricType.Gamma || 
+                            metric == MetricType.GammaDeviance ||
+                            metric == MetricType.Tweedie || 
+                            metric == MetricType.Poisson)
+                        {
+                            var labels = dataSet.GetLabels();
+                            for (var i = 0; i < labels.Length; i++)
+                                 labels[i] = (float)Math.Max(1e-3, Math.Abs(labels[i]));
+                            dataSet.SetLabels(labels);
+                        }
+
                         pms.Objective.Metric = metric;
                       //pms.Metric.IsProvideTrainingMetric = true;
                         using (var booster = new Booster(pms, dataSet))
