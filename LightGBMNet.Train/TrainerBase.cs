@@ -138,6 +138,28 @@ namespace LightGBMNet.Train
         }
 
     }
+    
+    public class Predictors<TOutput> : IDisposable
+    {
+        /// <summary>
+        /// Managed predictor
+        /// </summary>
+        public IPredictorWithFeatureWeights<TOutput> Managed { get; }
+        public IVectorisedPredictorWithFeatureWeights<TOutput> Native { get; }
+
+        public Predictors(IPredictorWithFeatureWeights<TOutput> managed, IVectorisedPredictorWithFeatureWeights<TOutput> native)
+        {
+            Managed = managed;
+            Native = native;
+        }
+
+        #region IDisposable
+        public void Dispose()
+        {
+            Native.Dispose();
+        }
+        #endregion
+    }
 
     /// <summary>
     /// Base class for all training with LightGBM.
@@ -145,7 +167,8 @@ namespace LightGBMNet.Train
     public abstract class TrainerBase<TOutput> : IDisposable
     {
         public abstract PredictionKind PredictionKind { get; }
-        private protected abstract IPredictorWithFeatureWeights<TOutput> CreatePredictor();
+        private protected abstract IPredictorWithFeatureWeights<TOutput> CreateManagedPredictor();
+        private protected abstract IVectorisedPredictorWithFeatureWeights<TOutput> CreateNativePredictor();
         public ObjectiveParameters Objective { get; set; }
         public LearningParameters Learning { get; set; }
 
@@ -153,7 +176,7 @@ namespace LightGBMNet.Train
         private protected int FeatureCount;
         private protected Ensemble TrainedEnsemble;
 
-        private Booster Booster { get; set; } = null;
+        protected Booster Booster { get; set; } = null;
 
         public Dictionary<int, double> TrainMetrics { get; } = new Dictionary<int, double>();
         public Dictionary<int, double> ValidMetrics { get; } = new Dictionary<int, double>();
@@ -227,9 +250,9 @@ namespace LightGBMNet.Train
 
         }
 
-        public IPredictorWithFeatureWeights<TOutput> Train( Datasets data
-                                                          , Func<int, double> learningRateSchedule = null     // optional: learning rate as a function of iteration (zero-based)
-                                                          )
+        public Predictors<TOutput> Train( Datasets data
+                                        , Func<int, double> learningRateSchedule = null     // optional: learning rate as a function of iteration (zero-based)
+                                        )
         {
             // For multi class, the number of labels is required.
             if (!(PredictionKind != PredictionKind.MultiClassClassification || Objective.NumClass > 1))
@@ -263,8 +286,9 @@ namespace LightGBMNet.Train
             if (strIn != strOut)
                 throw new Exception($"Parameters differ:\n{strIn}\n{strOut}");
 
-            var predictor = CreatePredictor();            
-            return predictor;
+            var managed = CreateManagedPredictor();
+            var native = CreateNativePredictor();
+            return new Predictors<TOutput>(managed, native);
         }
 
         /// <summary>
@@ -289,7 +313,7 @@ namespace LightGBMNet.Train
         public double[,] Evaluate(Booster.PredictType predictType, float[][] rows, int numIteration = -1)
         {
             if (Booster == null) throw new Exception("Model has not been trained");
-            var rslt = Booster.PredictForMats(predictType, rows, numIteration);
+            var rslt = Booster.PredictForMatsMulti(predictType, rows, numIteration);
             return rslt;
         }
 

@@ -7,6 +7,25 @@ using LightGBMNet.Tree;
 
 namespace LightGBMNet.Train
 {
+    public class RegressionNativePredictor : NativePredictorBase<double>
+    {
+        public override PredictionKind PredictionKind => PredictionKind.Regression;
+
+        public RegressionNativePredictor(Booster booster) : base(booster)
+        {
+        }
+
+        private protected override double ConvertOutput(double[] output)
+        {
+            return output[0];
+        }
+
+        public override double[] GetOutputs(float[][] rows)
+        {
+            return Booster.PredictForMats(Booster.PredictType.Normal, rows, MaxNumTrees);
+        }
+    }
+
     public sealed class RegressionTrainer : TrainerBase<double>
     {
         public override PredictionKind PredictionKind => PredictionKind.Regression;
@@ -43,7 +62,7 @@ namespace LightGBMNet.Train
                    !PositiveOutput();
         }
 
-        private protected override IPredictorWithFeatureWeights<double> CreatePredictor()
+        private protected override IPredictorWithFeatureWeights<double> CreateManagedPredictor()
         {
             var pred = new RegressionPredictor(TrainedEnsemble, FeatureCount, AverageOutput);
             if (PositiveOutput())
@@ -53,6 +72,10 @@ namespace LightGBMNet.Train
             else
                 return pred;
         }
-    }
 
+        private protected override IVectorisedPredictorWithFeatureWeights<double> CreateNativePredictor()
+        {
+            return new RegressionNativePredictor(Booster.Clone());
+        }
+    }
 }

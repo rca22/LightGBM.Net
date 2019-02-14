@@ -37,7 +37,18 @@ namespace LightGBMNet.Tree
         /// Dimension of input to GetOutput method
         /// </summary>
         int NumInputs { get; }
+        /// <summary>
+        /// Evaluate the model on a single row of features
+        /// </summary>
         void GetOutput(ref VBuffer<float> input, ref TResult output);
+    }
+
+    public interface IVectorisedPredictorProducing<TResult> : IPredictorProducing<TResult>
+    {
+        /// <summary>
+        /// Evaluate the model on multiple rows of features
+        /// </summary>
+        TResult[] GetOutputs(float[][] rows);
     }
 
     /// <summary>
@@ -66,6 +77,14 @@ namespace LightGBMNet.Tree
     /// Interface implemented by predictors that can score features.
     /// </summary>
     public interface IPredictorWithFeatureWeights<TResult> : IPredictorProducing<TResult>, IHaveFeatureWeights, ITreeEnsemble
+    {
+    }
+
+    /// <summary>
+    /// Native predictor with vectorised evaluation
+    /// </summary>
+    /// <typeparam name="TResult"></typeparam>
+    public interface IVectorisedPredictorWithFeatureWeights<TResult> : IVectorisedPredictorProducing<TResult>, IPredictorWithFeatureWeights<TResult>, IDisposable
     {
     }
 

@@ -981,9 +981,10 @@ namespace LightGBMNet.Train
             CApiPredictType predictType,
             int numIteration,
             [MarshalAs(UnmanagedType.LPStr)] string parameter,
-            double[,] outResult)
+            long outLen,
+            double* outResult)
         {
-            var gcHandles = new List<GCHandle>(data.Length+1);
+            var gcHandles = new List<GCHandle>(data.Length);
             try
             {
                 float*[] dataPtrs = new float*[data.Length];
@@ -993,9 +994,6 @@ namespace LightGBMNet.Train
                     gcHandles.Add(hdl);
                     dataPtrs[i] = (float*)hdl.AddrOfPinnedObject().ToPointer();
                 };
-                var hdlout = GCHandle.Alloc(outResult, GCHandleType.Pinned);
-                gcHandles.Add(hdlout);
-                long outLen = outResult.GetLength(0) * outResult.GetLength(1);
 
                 fixed (float** dataPtr = dataPtrs)
                     return BoosterPredictForMats(
@@ -1003,7 +1001,7 @@ namespace LightGBMNet.Train
                         dataPtr, CApiDType.Float32,
                         data.Length, nCol,
                         predictType, numIteration, parameter, ref outLen,
-                        (double*)hdlout.AddrOfPinnedObject().ToPointer());
+                        outResult);
             }
             finally
             {

@@ -121,6 +121,26 @@ namespace LightGBMNet.Train
             return new Booster(handle, numIteration);
         }
 
+        /// <summary>
+        /// Clones the Booster object
+        /// </summary>
+        /// <returns></returns>
+        public Booster Clone()
+        {
+            var file = System.IO.Path.GetTempFileName();
+            try
+            {
+                SaveModel(0, 0, file);
+                var clone = FromFile(file);
+                clone.BestIteration = BestIteration;
+                return clone;
+            }
+            finally
+            {
+                System.IO.File.Delete(file);
+            }
+        }
+
         public void ResetTraingData(Dataset trainset)
         {
             Check.NonNull(trainset, nameof(trainset));
@@ -506,7 +526,31 @@ namespace LightGBMNet.Train
             return outResult;
         }
 
-        public unsafe double[,] PredictForMats(PredictType predictType, float[][] data, int numIteration = -1)
+        public unsafe double[] PredictForMats(PredictType predictType, float[][] data, int numIteration = -1)
+        {
+            if (predictType == PredictType.LeafIndex)
+                throw new NotImplementedException("TODO: PredictType.LeafIndex");
+            if (NumClasses != 1)
+                throw new Exception("Call PredictForMatsMulti when NumClasses > 1");
+
+            var outResult = new double[data.Length];
+            if (data.Length > 0)
+            {
+                fixed (double* ptr = outResult)
+                    PInvokeException.Check(PInvoke.BoosterPredictForMats( Handle
+                                                                        , data
+                                                                        , /*nCol*/ data[0].Length
+                                                                        , (PInvoke.CApiPredictType)predictType
+                                                                        , (numIteration == -1) ? BestIteration : numIteration
+                                                                        , ""
+                                                                        , outResult.Length
+                                                                        , ptr
+                                                                        ), nameof(PInvoke.BoosterPredictForMats));
+            }
+            return outResult;
+        }
+
+        public unsafe double[,] PredictForMatsMulti(PredictType predictType, float[][] data, int numIteration = -1)
         {
             if (predictType == PredictType.LeafIndex)
                 throw new NotImplementedException("TODO: PredictType.LeafIndex");
@@ -514,14 +558,25 @@ namespace LightGBMNet.Train
             var outResult = new double[data.Length, NumClasses];
             if (data.Length > 0)
             {
-                PInvokeException.Check(PInvoke.BoosterPredictForMats(Handle
-                                                                    , data
-                                                                    , /*nCol*/ data[0].Length
-                                                                    , (PInvoke.CApiPredictType)predictType
-                                                                    , (numIteration == -1) ? BestIteration : numIteration
-                                                                    , ""
-                                                                    , outResult
-                                                                    ), nameof(PInvoke.BoosterPredictForMats));
+                long outLen = outResult.GetLength(0) * outResult.GetLength(1);
+                var hdl = GCHandle.Alloc(outResult, GCHandleType.Pinned);
+                try
+                {
+                    PInvokeException.Check(PInvoke.BoosterPredictForMats(Handle
+                                                                        , data
+                                                                        , /*nCol*/ data[0].Length
+                                                                        , (PInvoke.CApiPredictType)predictType
+                                                                        , (numIteration == -1) ? BestIteration : numIteration
+                                                                        , ""
+                                                                        , outLen
+                                                                        , (double*)hdl.AddrOfPinnedObject().ToPointer()
+                                                                        ), nameof(PInvoke.BoosterPredictForMats));
+                }
+                finally
+                {
+                    if (hdl.IsAllocated)
+                        hdl.Free();
+                }
             }
             return outResult;
         }

@@ -7,6 +7,24 @@ using LightGBMNet.Tree;
 
 namespace LightGBMNet.Train
 {
+    public class RankingNativePredictor : NativePredictorBase<double>
+    {
+        public override PredictionKind PredictionKind => PredictionKind.Ranking;
+
+        public RankingNativePredictor(Booster booster) : base(booster)
+        {
+        }
+
+        private protected override double ConvertOutput(double[] output)
+        {
+            return output[0];
+        }
+
+        public override double[] GetOutputs(float[][] rows)
+        {
+            return Booster.PredictForMats(Booster.PredictType.Normal, rows, MaxNumTrees);
+        }
+    }
 
     public sealed class RankingTrainer : TrainerBase<double>
     {
@@ -20,11 +38,15 @@ namespace LightGBMNet.Train
                 op.Metric = MetricType.Ndcg;
         }
 
-        private protected override IPredictorWithFeatureWeights<double> CreatePredictor()
+        private protected override IPredictorWithFeatureWeights<double> CreateManagedPredictor()
         {
             return new RankingPredictor(TrainedEnsemble, FeatureCount, AverageOutput);
         }
 
+        private protected override IVectorisedPredictorWithFeatureWeights<double> CreateNativePredictor()
+        {
+            return new RankingNativePredictor(Booster.Clone());
+        }
     }
 
 }

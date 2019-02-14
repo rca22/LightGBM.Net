@@ -53,7 +53,6 @@ namespace LightGBMNet.Tree
         {
             return SubPredictor.GetFeatureGains(feature);
         }
-
     }
 
     public sealed class PlattCalibrator : ICalibrator

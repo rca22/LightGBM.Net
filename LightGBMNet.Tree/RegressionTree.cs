@@ -468,7 +468,10 @@ namespace LightGBMNet.Tree
                 var result = new FeatureToGainMap();
                 int numNonLeaves = NumLeaves - 1;
                 for (int n = 0; n < numNonLeaves; ++n)
-                    result[SplitFeatures[n]] += SplitGains[n];
+                {
+                    if (SplitGains[n] != 0)
+                        result[SplitFeatures[n]] += SplitGains[n];
+                }
                 return result;
             }
         }
@@ -480,7 +483,10 @@ namespace LightGBMNet.Tree
                 var result = new FeatureToGainMap();
                 int numNonLeaves = NumLeaves - 1;
                 for (int n = 0; n < numNonLeaves; ++n)
-                    result[SplitFeatures[n]] += 1;
+                {
+                    if (SplitGains[n] > 0)
+                        result[SplitFeatures[n]] += 1;
+                }
                 return result;
             }
         }

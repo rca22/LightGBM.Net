@@ -7,6 +7,39 @@ using LightGBMNet.Tree;
 
 namespace LightGBMNet.Train
 {
+    public class MulticlassNativePredictor : NativePredictorBase<double []>
+    {
+        public override PredictionKind PredictionKind => PredictionKind.MultiClassClassification;
+
+        public MulticlassNativePredictor(Booster booster) : base(booster)
+        {
+        }
+
+        private protected override double [] ConvertOutput(double[] output)
+        {
+            return output;
+        }
+
+        public override double[][] GetOutputs(float[][] rows)
+        {
+            var output = Booster.PredictForMatsMulti(Booster.PredictType.Normal, rows, MaxNumTrees);
+
+            // convert from 2D array to array of rows
+            var numRows = output.GetLength(0);
+            var numCols = output.GetLength(1);
+            var rslt = new double[numRows][];
+            for (int i=0; i<rslt.Length; i++)
+            {
+                var row = new double[numCols];
+                for (int j = 0; j < row.Length; j++)
+                    row[j] = output[i, j];
+                rslt[i] = row;
+            }
+            return rslt;
+        }
+
+    }
+
     public sealed class MulticlassTrainer : TrainerBase<double []>
     {
         public override PredictionKind PredictionKind => PredictionKind.MultiClassClassification;
@@ -41,7 +74,7 @@ namespace LightGBMNet.Train
             return new BinaryPredictor(GetBinaryEnsemble(classID), FeatureCount, AverageOutput);
         }
 
-        private protected override IPredictorWithFeatureWeights<double []> CreatePredictor()
+        private protected override IPredictorWithFeatureWeights<double []> CreateManagedPredictor()
         {
             var numClass = Objective.NumClass;
             if (TrainedEnsemble.NumTrees % numClass != 0)
@@ -58,6 +91,10 @@ namespace LightGBMNet.Train
             return OvaPredictor.Create(isSoftMax, predictors);
         }
 
+        private protected override IVectorisedPredictorWithFeatureWeights<double []> CreateNativePredictor()
+        {
+            return new MulticlassNativePredictor(Booster.Clone());
+        }
     }
 
 }

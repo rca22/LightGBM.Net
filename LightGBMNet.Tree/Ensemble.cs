@@ -130,7 +130,7 @@ namespace LightGBMNet.Tree
     public class FeatureToGainMap : Dictionary<int, double>
     {
         public FeatureToGainMap() { }
-        // Override default Dictionary to return 0.0 for non-eisting keys
+        // Override default Dictionary to return 0.0 for non-existing keys
         public new double this[int key] {
             get {
                 TryGetValue(key, out double retval);

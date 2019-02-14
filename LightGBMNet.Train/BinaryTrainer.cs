@@ -3,10 +3,30 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using LightGBMNet.Tree;
 
 namespace LightGBMNet.Train
 {
+    public class BinaryNativePredictor : NativePredictorBase<double>
+    {
+        public override PredictionKind PredictionKind => PredictionKind.BinaryClassification;
+
+        public BinaryNativePredictor(Booster booster) : base(booster)
+        {
+        }
+
+        private protected override double ConvertOutput(double [] output)
+        {
+            return output[0];
+        }
+
+        public override double[] GetOutputs(float[][] rows)
+        {
+            return Booster.PredictForMats(Booster.PredictType.Normal, rows, MaxNumTrees);
+        }
+    }
 
     public sealed class BinaryTrainer : TrainerBase<double>
     {
@@ -20,13 +40,17 @@ namespace LightGBMNet.Train
                 op.Metric = MetricType.BinaryLogLoss;
         }
 
-        private protected override IPredictorWithFeatureWeights<double> CreatePredictor()
+        private protected override IPredictorWithFeatureWeights<double> CreateManagedPredictor()
         {
             var pred = new BinaryPredictor(TrainedEnsemble, FeatureCount, AverageOutput);
             var cali = new PlattCalibrator(-Objective.Sigmoid);
             return new CalibratedPredictor(pred, cali);
         }
-        
+
+        private protected override IVectorisedPredictorWithFeatureWeights<double> CreateNativePredictor()
+        {            
+            return new BinaryNativePredictor(Booster.Clone());
+        }
     }
 
 }
