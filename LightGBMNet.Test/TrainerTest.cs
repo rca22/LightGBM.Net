@@ -871,7 +871,7 @@ namespace LightGBMNet.Train.Test
             }
         }
 
-        //[Fact]
+        [Fact]
         public void BenchmarkEval()
         {
             var rand = new Random(Seed);
@@ -895,11 +895,17 @@ namespace LightGBMNet.Train.Test
                 output.WriteLine($"MaxNumTrees={model.Managed.MaxNumTrees}");
 
                 var timer = System.Diagnostics.Stopwatch.StartNew();
-                trainer.Evaluate(Booster.PredictType.Normal, trainData.Features);
+                model.Native.GetOutputs(trainData.Features);
                 var elapsed1 = timer.Elapsed;
-                output.WriteLine($"EvalNative={elapsed1.TotalMilliseconds}");
+                output.WriteLine($"EvalNativeMulti={elapsed1.TotalMilliseconds}");
 
-                foreach (var maxThreads in new int[] { 1, 2, 4, 8, 16, 32, Environment.ProcessorCount})
+                timer.Restart();
+                foreach (var row in trainData.Features)
+                    trainer.Evaluate(Booster.PredictType.Normal, row);
+                var elapsed2 = timer.Elapsed;
+                output.WriteLine($"EvalNativeSingle={elapsed2.TotalMilliseconds}");
+
+                foreach (var maxThreads in new int[] { 1, 2, 4, 8, 16, 32, Environment.ProcessorCount }) // 
                 {
                     model.Managed.MaxThreads = maxThreads;
                     timer.Restart();
@@ -909,8 +915,8 @@ namespace LightGBMNet.Train.Test
                         var input = new VBuffer<float>(row.Length, row);
                         model.Managed.GetOutput(ref input, ref output);
                     }
-                    var elapsed2 = timer.Elapsed;
-                    output.WriteLine($"MaxThreads={maxThreads} EvalManaged={elapsed2.TotalMilliseconds}");
+                    var elapsed3 = timer.Elapsed;
+                    output.WriteLine($"MaxThreads={maxThreads} EvalManaged={elapsed3.TotalMilliseconds}");
                 }
             }
         }

@@ -60,7 +60,7 @@ namespace LightGBMNet.Train
 
     public static class NativePredictorPersist
     {
-        public static void Save<T>(IPredictorWithFeatureWeights<T> pred, BinaryWriter writer)
+        public static void Save<T>(IVectorisedPredictorWithFeatureWeights<T> pred, BinaryWriter writer)
         {
             Booster booster = null;
             int maxNumTrees = pred.MaxNumTrees;
@@ -90,7 +90,7 @@ namespace LightGBMNet.Train
             writer.Write(maxNumTrees);
         }
 
-        public static IPredictorWithFeatureWeights<T> Load<T>(BinaryReader reader)
+        public static IVectorisedPredictorWithFeatureWeights<T> Load<T>(BinaryReader reader)
         {
             var flag = reader.ReadInt32();
             var booster = Booster.FromString(reader.ReadString());
@@ -98,18 +98,18 @@ namespace LightGBMNet.Train
             if (typeof(T) == typeof(double))
             {
                 if (flag == 0)
-                    return new BinaryNativePredictor(booster) { MaxNumTrees = maxNumTrees } as IPredictorWithFeatureWeights<T>;
+                    return new BinaryNativePredictor(booster) { MaxNumTrees = maxNumTrees } as IVectorisedPredictorWithFeatureWeights<T>;
                 else if (flag == 1)
-                    return new RegressionNativePredictor(booster) { MaxNumTrees = maxNumTrees } as IPredictorWithFeatureWeights<T>;
+                    return new RegressionNativePredictor(booster) { MaxNumTrees = maxNumTrees } as IVectorisedPredictorWithFeatureWeights<T>;
                 else if (flag == 3)
-                    return new RankingNativePredictor(booster) { MaxNumTrees = maxNumTrees } as IPredictorWithFeatureWeights<T>;
+                    return new RankingNativePredictor(booster) { MaxNumTrees = maxNumTrees } as IVectorisedPredictorWithFeatureWeights<T>;
                 else
                     throw new FormatException("Invalid IPredictorWithFeatureWeights flag");
             }
             else if (typeof(T) == typeof(double[]))
             {
                 if (flag == 2)
-                    return new MulticlassNativePredictor(booster) { MaxNumTrees = maxNumTrees } as IPredictorWithFeatureWeights<T>;
+                    return new MulticlassNativePredictor(booster) { MaxNumTrees = maxNumTrees } as IVectorisedPredictorWithFeatureWeights<T>;
                 else
                     throw new FormatException("Invalid IPredictorWithFeatureWeights flag");
             }

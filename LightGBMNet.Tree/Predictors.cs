@@ -171,9 +171,9 @@ namespace LightGBMNet.Tree
             for (int i = 0; i < ensemble.NumTrees; i++)
             {
                 var tree = ensemble.GetTreeAt(i);
-                for (int n = 0; n < tree.NumNodes; n++)
+                for (int n = 0; n < tree.Nodes.Length; n++)
                 {
-                    int ifeat = tree.SplitFeatures[n];
+                    int ifeat = tree.Nodes[n].SplitFeature;
                     if (ifeat > ifeatMax)
                         ifeatMax = ifeat;
                 }
