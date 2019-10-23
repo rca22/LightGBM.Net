@@ -177,6 +177,7 @@ namespace LightGBMNet.Train
         private protected Ensemble TrainedEnsemble;
 
         protected Booster Booster { get; set; } = null;
+        private Datasets Datasets { get; set; } = null;
 
         public Dictionary<int, double> TrainMetrics { get; } = new Dictionary<int, double>();
         public Dictionary<int, double> ValidMetrics { get; } = new Dictionary<int, double>();
@@ -271,6 +272,8 @@ namespace LightGBMNet.Train
             Booster?.Dispose();
             Booster = null;
 
+            Datasets = data;
+
             var args = GetParameters(data);
             Booster = Train(args, data.Training, data.Validation, TrainMetrics, ValidMetrics, learningRateSchedule);
 
@@ -290,6 +293,65 @@ namespace LightGBMNet.Train
             var native = CreateNativePredictor();
             return new Predictors<TOutput>(managed, native);
         }
+
+        /// <summary>
+        /// Continue training current model, optionally with a new training dataset.
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="learningRateSchedule"></param>
+        /// <returns></returns>
+        public Predictors<TOutput> ContinueTraining( Dataset trainingData = null
+                                                   , Func<int, double> learningRateSchedule = null     // optional: learning rate as a function of iteration (zero-based)
+                                                   )
+        {
+            if (Booster == null)
+                throw new Exception("No existing booster to train.");
+            if (Datasets == null)
+                throw new Exception("No existing data sets.");
+
+            if (trainingData != null)
+            {
+                Datasets.Training = trainingData;
+                Booster.ResetTrainingData(trainingData);
+            }
+
+            // For multi class, the number of labels is required.
+            if (!(PredictionKind != PredictionKind.MultiClassClassification || Objective.NumClass > 1))
+                throw new Exception("LightGBM requires the number of classes to be specified in the parameters for multi-class classification.");
+
+            if (PredictionKind == PredictionKind.Ranking)
+            {
+                if (Datasets.Training.GetGroups() == null)
+                    throw new Exception("Require Groups training data for ObjectiveType.LambdaRank");
+                if (Datasets.Validation != null && Datasets.Validation.GetGroups() == null)
+                    throw new Exception("Require Groups validation data for ObjectiveType.LambdaRank");
+            }
+
+            // NOTE: existing metrics cleared
+            TrainMetrics.Clear();
+            ValidMetrics.Clear();
+
+            var args = GetParameters(Datasets);
+            // TODO: HOW TO RESET VALIDATION DATA???
+            Train(args, Booster, (Datasets.Validation != null), TrainMetrics, ValidMetrics, learningRateSchedule);
+
+            (var model, var argsout) = Booster.GetModel();
+            TrainedEnsemble = model;
+            FeatureCount = Datasets.Training.NumFeatures;
+
+            // check parameter strings
+            if (learningRateSchedule != null)
+                argsout.Learning.LearningRate = args.Learning.LearningRate;
+            var strIn = args.ToString();
+            var strOut = argsout.ToString();
+            if (strIn != strOut)
+                throw new Exception($"Parameters differ:\n{strIn}\n{strOut}");
+
+            var managed = CreateManagedPredictor();
+            var native = CreateNativePredictor();
+            return new Predictors<TOutput>(managed, native);
+        }
+
 
         /// <summary>
         /// Evaluates the native LightGBM model on the given feature vector
@@ -363,10 +425,28 @@ namespace LightGBMNet.Train
             // create Booster.
             Booster bst = new Booster(parameters, dtrain, dvalid);
 
+            Train(parameters, bst, (dvalid != null), trainMetrics, validMetrics, learningRateSchedule);
+
+            return bst;
+        }
+
+        /// <summary>
+        /// Train an existing booster.
+        /// </summary>
+        private static void Train( Parameters parameters
+                                 , Booster bst
+                                 , bool haveValidationData
+                                 , Dictionary<int, double> trainMetrics
+                                 , Dictionary<int, double> validMetrics
+                                 , Func<int, double> learningRateSchedule // optional: learning rate as a function of iteration (zero-based)
+                                 )
+        {
+            if (bst == null) throw new ArgumentNullException(nameof(bst));
+
             // Disable early stopping if we don't have validation data.
             var numIteration = parameters.Learning.NumIterations;
             var earlyStoppingRound = parameters.Learning.EarlyStoppingRound;
-            if (dvalid == null && earlyStoppingRound > 0)
+            if (!haveValidationData && earlyStoppingRound > 0)
             {
                 earlyStoppingRound = 0;
                 if (parameters.Common.Verbosity >= VerbosityType.Error)
@@ -418,7 +498,7 @@ namespace LightGBMNet.Train
                 {
                     trainError = bst.EvalTrain();
                     trainMetrics.Add(iter+1, trainError);
-                    if (dvalid != null)
+                    if (haveValidationData)
                     {
                         if (earlyStoppingRound == 0)
                         {
@@ -435,14 +515,12 @@ namespace LightGBMNet.Train
             if (!trainMetrics.ContainsKey(iter))
                 trainMetrics.Add(iter, bst.EvalTrain());
 
-            if (dvalid != null && !validMetrics.ContainsKey(iter))
+            if (haveValidationData && !validMetrics.ContainsKey(iter))
                 validMetrics.Add(iter, bst.EvalValid());
 
             // Set the BestIteration.
             if (iter != numIteration && earlyStoppingRound > 0)
                 bst.BestIteration = bestIter + 1;
-
-            return bst;
         }
     }
 }

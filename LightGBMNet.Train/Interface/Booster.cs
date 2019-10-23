@@ -141,13 +141,6 @@ namespace LightGBMNet.Train
             }
         }
 
-        public void ResetTraingData(Dataset trainset)
-        {
-            Check.NonNull(trainset, nameof(trainset));
-            PInvokeException.Check(PInvoke.BoosterResetTrainingData(Handle, trainset.Handle), 
-                                   nameof(PInvoke.BoosterResetTrainingData));
-        }
-
         public void ResetParameter(Parameters pms)
         {
             var param = pms.ToString();
@@ -426,10 +419,10 @@ namespace LightGBMNet.Train
             }
         }
 
-        public void ResetTrainingData(Dataset train)
+        public void ResetTrainingData(Dataset trainset)
         {
-            Check.NonNull(train,nameof(train));
-            PInvokeException.Check(PInvoke.BoosterResetTrainingData(Handle, train.Handle),
+            Check.NonNull(trainset, nameof(trainset));
+            PInvokeException.Check(PInvoke.BoosterResetTrainingData(Handle, trainset.Handle),
                                    nameof(PInvoke.BoosterResetTrainingData));
         }
 

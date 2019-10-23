@@ -273,11 +273,10 @@ namespace LightGBMNet.Train.Test
                         if (rand.NextDouble() > 0.5)
                             usedRowIndices.Add(i);
                     }
-                    var numUsedRowIndices = usedRowIndices.Count;
-                    using (var ds2 = ds.GetSubset(usedRowIndices.ToArray(), numUsedRowIndices))
+                    using (var ds2 = ds.GetSubset(usedRowIndices.ToArray()))
                     {
                         Assert.Equal(ds2.NumFeatures, ds.NumFeatures);
-                        Assert.Equal(ds2.NumRows, numUsedRowIndices);
+                        Assert.Equal(ds2.NumRows, usedRowIndices.Count);
                         //TODO: more rigorous testing?
                     }
                 }

@@ -442,12 +442,12 @@ namespace LightGBMNet.Train
         }
 */
 
-        public unsafe Dataset GetSubset(int[] usedRowIndices, int numUsedRowIndices, CommonParameters cp = null, DatasetParameters dp = null)
+        public unsafe Dataset GetSubset(int[] usedRowIndices, CommonParameters cp = null, DatasetParameters dp = null)
         {
             var pmString = ParamsToString(cp, dp);
             IntPtr p = IntPtr.Zero;
             fixed (int* usedRowIndices2 = usedRowIndices)
-                PInvokeException.Check(PInvoke.DatasetGetSubset(_handle, usedRowIndices2, numUsedRowIndices, pmString, ref p),
+                PInvokeException.Check(PInvoke.DatasetGetSubset(_handle, usedRowIndices2, usedRowIndices.Length, pmString, ref p),
                                    nameof(PInvoke.DatasetGetSubset));
             return new Dataset(p);
         }

@@ -254,111 +254,124 @@ namespace LightGBMNet.Train.Test
                                                                 new Datasets(pms.Common, pms.Dataset, Dense2Sparse(trainData), Dense2Sparse(validData)))
                     using (var trainer = new BinaryTrainer(pms.Learning, pms.Objective))
                     {
-                      //trainer.ToCommandLineFiles(datasets);
+                        //trainer.ToCommandLineFiles(datasets);
+
+                        var datasets2 = (rand.Next(2) == 0) ? null : datasets.Training.GetSubset(Enumerable.Range(0, datasets.Training.NumRows/2).ToArray());
 
                         var model = trainer.Train(datasets, learningRateSchedule);
-                        model.Managed.MaxThreads = rand.Next(1, Environment.ProcessorCount);
-
-                        // possibly use subset of trees
-                        var numIterations = -1;
-                        if (rand.Next(2) == 0)
                         {
-                            numIterations = rand.Next(1, model.Managed.MaxNumTrees);
-                            model.Managed.MaxNumTrees = numIterations;
-                            model.Native.MaxNumTrees  = numIterations;
+                            if (datasets2 != null)
+                            {
+                                model.Dispose();
+                                model = trainer.ContinueTraining(datasets2, learningRateSchedule);
+                            }
+
+                            model.Managed.MaxThreads = rand.Next(1, Environment.ProcessorCount);
+
+                            // possibly use subset of trees
+                            var numIterations = -1;
+                            if (rand.Next(2) == 0)
+                            {
+                                numIterations = rand.Next(1, model.Managed.MaxNumTrees);
+                                model.Managed.MaxNumTrees = numIterations;
+                                model.Native.MaxNumTrees = numIterations;
+                            }
+
+                            CalibratedPredictor model2 = null;
+                            using (var ms = new System.IO.MemoryStream())
+                            using (var writer = new System.IO.BinaryWriter(ms))
+                            using (var reader = new System.IO.BinaryReader(ms))
+                            {
+                                PredictorPersist.Save(model.Managed, writer);
+                                ms.Position = 0;
+                                model2 = PredictorPersist.Load<double>(reader) as CalibratedPredictor;
+                                Assert.Equal(ms.Position, ms.Length);
+                            }
+
+                            BinaryNativePredictor model2native = null;
+                            using (var ms = new System.IO.MemoryStream())
+                            using (var writer = new System.IO.BinaryWriter(ms))
+                            using (var reader = new System.IO.BinaryReader(ms))
+                            {
+                                NativePredictorPersist.Save(model.Native, writer);
+                                ms.Position = 0;
+                                model2native = NativePredictorPersist.Load<double>(reader) as BinaryNativePredictor;
+                                Assert.Equal(ms.Position, ms.Length);
+                            }
+
+                            var rawscore2s = trainer.Evaluate(Booster.PredictType.RawScore, trainData.Features, numIterations);
+                            Assert.Equal(trainData.Features.Length, rawscore2s.GetLength(0));
+                            Assert.Equal(1, rawscore2s.GetLength(1));
+
+                            var output3s = trainer.Evaluate(Booster.PredictType.Normal, trainData.Features, numIterations);
+                            Assert.Equal(trainData.Features.Length, output3s.GetLength(0));
+                            Assert.Equal(1, output3s.GetLength(1));
+
+                            var output3natives = model.Native.GetOutputs(trainData.Features);
+                            Assert.Equal(trainData.Features.Length, output3s.Length);
+
+                            for (int i = 0; i < trainData.Features.Length; i++)
+                            {
+                                var row = trainData.Features[i];
+
+                                double output = 0;
+                                var input = new VBuffer<float>(row.Length, row);
+                                model.Managed.GetOutput(ref input, ref output);
+                                Assert.True(output >= 0);
+                                Assert.True(output <= 1);
+
+                                double output2 = 0;
+                                model2.GetOutput(ref input, ref output2);
+                                Compare(output, output2);
+
+                                // check raw score against native booster object
+                                var rawscore = 0.0;
+                                (model.Managed as CalibratedPredictor).SubPredictor.GetOutput(ref input, ref rawscore);
+                                var rawscore2 = trainer.Evaluate(Booster.PredictType.RawScore, row, numIterations);
+                                Assert.Single(rawscore2);
+                                Assert.Equal(rawscore2[0], rawscore2s[i, 0]);
+                                var isRf = (pms.Learning.Boosting == BoostingType.RandomForest);
+                                Compare(isRf ? rawscore * model.Managed.MaxNumTrees : rawscore, rawscore2[0]);
+
+                                var output3 = trainer.Evaluate(Booster.PredictType.Normal, row, numIterations);
+                                Assert.Single(output3);
+                                Assert.Equal(output3[0], output3s[i, 0]);
+                                Assert.Equal(output3[0], output3natives[i]);
+                                Compare(output, output3[0]);
+
+                                double outputNative = 0;
+                                model.Native.GetOutput(ref input, ref outputNative);
+                                Assert.Equal(outputNative, output3[0]);
+
+                                model2native.GetOutput(ref input, ref outputNative);
+                                Assert.Equal(outputNative, output3[0]);
+
+                                //Console.WriteLine(trainer.GetModelString());
+                                //throw new Exception($"Output mismatch {output} vs {output3[0]} (error: {Math.Abs(output - output3[0])}) input: {String.Join(", ", row)}");
+                            }
+
+                            var normalise = rand.Next(2) == 0;
+                            var getSplits = rand.Next(2) == 0;
+                            var gains = model.Managed.GetFeatureWeights(normalise, getSplits);
+                            var gainsNative = model.Native.GetFeatureWeights(normalise, getSplits);
+                            Assert.Equal(gains.Count, gainsNative.Count);
+                            foreach (var kv in gains)
+                            {
+                                Assert.True(0 <= kv.Key && kv.Key < trainData.NumColumns);
+                                Assert.True(0.0 <= kv.Value);
+                                Compare(kv.Value, gainsNative[kv.Key]);
+                            }
+
+                            if (!getSplits && !normalise)
+                            {
+                                var totGain1 = gains.Values.Sum();
+                                var totGain2 = Enumerable.Range(0, trainData.NumColumns).SelectMany(i => model.Managed.GetFeatureGains(i)).Sum();
+                                Compare(totGain1, totGain2);
+                            }
                         }
 
-                        CalibratedPredictor model2 = null;
-                        using (var ms = new System.IO.MemoryStream())
-                        using (var writer = new System.IO.BinaryWriter(ms))
-                        using (var reader = new System.IO.BinaryReader(ms))
-                        {
-                            PredictorPersist.Save(model.Managed, writer);
-                            ms.Position = 0;
-                            model2 = PredictorPersist.Load<double>(reader) as CalibratedPredictor;
-                            Assert.Equal(ms.Position, ms.Length);
-                        }
-
-                        BinaryNativePredictor model2native = null;
-                        using (var ms = new System.IO.MemoryStream())
-                        using (var writer = new System.IO.BinaryWriter(ms))
-                        using (var reader = new System.IO.BinaryReader(ms))
-                        {
-                            NativePredictorPersist.Save(model.Native, writer);
-                            ms.Position = 0;
-                            model2native = NativePredictorPersist.Load<double>(reader) as BinaryNativePredictor;
-                            Assert.Equal(ms.Position, ms.Length);
-                        }
-
-                        var rawscore2s = trainer.Evaluate(Booster.PredictType.RawScore, trainData.Features, numIterations);
-                        Assert.Equal(trainData.Features.Length, rawscore2s.GetLength(0));
-                        Assert.Equal(1, rawscore2s.GetLength(1));
-
-                        var output3s = trainer.Evaluate(Booster.PredictType.Normal, trainData.Features, numIterations);
-                        Assert.Equal(trainData.Features.Length, output3s.GetLength(0));
-                        Assert.Equal(1, output3s.GetLength(1));
-
-                        var output3natives = model.Native.GetOutputs(trainData.Features);
-                        Assert.Equal(trainData.Features.Length, output3s.Length);
-
-                        for (int i=0; i<trainData.Features.Length; i++)
-                        {
-                            var row = trainData.Features[i];
-
-                            double output = 0;
-                            var input = new VBuffer<float>(row.Length, row);
-                            model.Managed.GetOutput(ref input, ref output);
-                            Assert.True(output >= 0);
-                            Assert.True(output <= 1);
-
-                            double output2 = 0;
-                            model2.GetOutput(ref input, ref output2);
-                            Compare(output, output2);
-
-                            // check raw score against native booster object
-                            var rawscore = 0.0;
-                            (model.Managed as CalibratedPredictor).SubPredictor.GetOutput(ref input, ref rawscore);
-                            var rawscore2 = trainer.Evaluate(Booster.PredictType.RawScore, row, numIterations);
-                            Assert.Single(rawscore2);
-                            Assert.Equal(rawscore2[0], rawscore2s[i,0]);
-                            var isRf = (pms.Learning.Boosting == BoostingType.RandomForest);
-                            Compare(isRf ? rawscore * model.Managed.MaxNumTrees : rawscore, rawscore2[0]);
-
-                            var output3 = trainer.Evaluate(Booster.PredictType.Normal, row, numIterations);
-                            Assert.Single(output3);
-                            Assert.Equal(output3[0], output3s[i,0]);
-                            Assert.Equal(output3[0], output3natives[i]);
-                            Compare(output, output3[0]);
-
-                            double outputNative = 0;
-                            model.Native.GetOutput(ref input, ref outputNative);
-                            Assert.Equal(outputNative, output3[0]);
-
-                            model2native.GetOutput(ref input, ref outputNative);
-                            Assert.Equal(outputNative, output3[0]);
-
-                            //Console.WriteLine(trainer.GetModelString());
-                            //throw new Exception($"Output mismatch {output} vs {output3[0]} (error: {Math.Abs(output - output3[0])}) input: {String.Join(", ", row)}");
-                        }
-
-                        var normalise = rand.Next(2) == 0;
-                        var getSplits = rand.Next(2) == 0;
-                        var gains = model.Managed.GetFeatureWeights(normalise, getSplits);
-                        var gainsNative = model.Native.GetFeatureWeights(normalise, getSplits);
-                        Assert.Equal(gains.Count, gainsNative.Count);
-                        foreach (var kv in gains)
-                        {
-                            Assert.True(0 <= kv.Key && kv.Key < trainData.NumColumns);
-                            Assert.True(0.0 <= kv.Value);
-                            Compare(kv.Value, gainsNative[kv.Key]);
-                        }
-
-                        if (!getSplits && !normalise)
-                        {
-                            var totGain1 = gains.Values.Sum();
-                            var totGain2 = Enumerable.Range(0, trainData.NumColumns).SelectMany(i => model.Managed.GetFeatureGains(i)).Sum();
-                            Compare(totGain1, totGain2);
-                        }
+                        if (datasets2 != null) datasets2.Dispose();
+                        if (model != null) model.Dispose();
                     }
                 }
                 catch (Exception e)
@@ -839,12 +852,14 @@ namespace LightGBMNet.Train.Test
             {
                 for (int gpu = 0; gpu < 2; gpu++)
                 {
-                    int numColumns = 500 * (test + 1);
+                    int numColumns = 50 * (test + 1);
                     var pms = new Parameters();
                     pms.Objective.Objective = ObjectiveType.Binary;
                     pms.Dataset.MaxBin = 63;
+                    pms.Learning.BaggingFraction = 1;
+                    pms.Learning.BaggingFreq = 1;
                     pms.Learning.LearningRate = 1e-3;
-                    pms.Learning.NumIterations = 100;
+                    pms.Learning.NumIterations = 10;
                     pms.Common.DeviceType = (gpu > 0) ? DeviceType.GPU : DeviceType.CPU;
 
                     var categorical = new Dictionary<int, int>();   // i.e., no cat
@@ -860,7 +875,7 @@ namespace LightGBMNet.Train.Test
                             var timer = System.Diagnostics.Stopwatch.StartNew();
                             var model = trainer.Train(datasets);
                             var elapsed = timer.Elapsed;
-                            Console.WriteLine($"{pms.Common.DeviceType}: NumCols={numColumns} MaxNumTrees={model.Managed.MaxNumTrees} TrainTimeSecs={elapsed.TotalSeconds}");
+                            output.WriteLine($"{pms.Common.DeviceType}: NumRows={trainData.NumRows} NumCols={numColumns} MaxNumTrees={model.Managed.MaxNumTrees} TrainTimeSecs={elapsed.TotalSeconds}");
                         }
                     }
                     catch (Exception e)

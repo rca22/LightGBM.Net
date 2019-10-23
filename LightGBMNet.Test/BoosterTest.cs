@@ -38,7 +38,7 @@ namespace LightGBMNet.Train.Test
                         var dataSet2 = new Dataset(dataSet, dataSet.NumRows / 2);
                         Assert.Equal(dataSet.NumFeatures,booster.NumFeatures);
                         Assert.Equal(dataSet.NumRows,booster.GetNumPredict(0));
-                        booster.ResetTraingData(dataSet2);
+                        booster.ResetTrainingData(dataSet2);
                         Assert.Equal(dataSet2.NumFeatures,booster.NumFeatures);
                         Assert.Equal(dataSet.NumRows / 2, dataSet2.NumRows);
                         Assert.Equal(dataSet2.NumRows,booster.GetNumPredict(0));
