@@ -227,9 +227,12 @@ namespace LightGBMNet.Train
                     for (int i = 0; i < ptrs.Length; ++i)
                         ptrs[i] = Marshal.AllocCoTaskMem(sizeof(char) * PInvoke.MAX_PREALLOCATED_STRING_LENGTH);
                     var retNumEval = 0;
-                    PInvokeException.Check(PInvoke.BoosterGetEvalNames(Handle, ref retNumEval, ptrs), nameof(PInvoke.BoosterGetEvalNames));
+                    ulong retBufferLen = 0;
+                    PInvokeException.Check(PInvoke.BoosterGetEvalNames(Handle, numEval, ref retNumEval, (ulong)PInvoke.MAX_PREALLOCATED_STRING_LENGTH, ref retBufferLen, ptrs), nameof(PInvoke.BoosterGetEvalNames));
                     if (numEval != retNumEval)
                         throw new Exception("Unexpected number of names returned");
+                    if (retBufferLen > (ulong)PInvoke.MAX_PREALLOCATED_STRING_LENGTH)
+                        throw new Exception($"Max eval name length is {retBufferLen}, which is greater than max supported length {PInvoke.MAX_PREALLOCATED_STRING_LENGTH}.");
                     for (int i = 0; i < ptrs.Length; ++i)
                         rslts[i] = EnumHelper.ParseMetric(Marshal.PtrToStringAnsi(ptrs[i]));
                 }
@@ -463,10 +466,13 @@ namespace LightGBMNet.Train
                     for (int i = 0; i < ptrs.Length; ++i)
                         ptrs[i] = Marshal.AllocCoTaskMem(sizeof(char) * PInvoke.MAX_PREALLOCATED_STRING_LENGTH);
                     int retFeatureNames = 0;
-                    PInvokeException.Check(PInvoke.BoosterGetFeatureNames(Handle, ref retFeatureNames, ptrs),
+                    ulong retBufferLen = 0;
+                    PInvokeException.Check(PInvoke.BoosterGetFeatureNames(Handle, numFeatureNames, ref retFeatureNames, (ulong)PInvoke.MAX_PREALLOCATED_STRING_LENGTH, ref retBufferLen, ptrs),
                                            nameof(PInvoke.BoosterGetFeatureNames));
                     if (retFeatureNames != numFeatureNames)
                         throw new Exception("Unexpected number of feature names returned");
+                    if (retBufferLen > (ulong)PInvoke.MAX_PREALLOCATED_STRING_LENGTH)
+                        throw new Exception($"Max feature name length is {retBufferLen}, which is greater than max supported length {PInvoke.MAX_PREALLOCATED_STRING_LENGTH}.");
                     for (int i = 0; i < ptrs.Length; ++i)
                         rslts[i] = Marshal.PtrToStringAnsi(ptrs[i]);
                 }

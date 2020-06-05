@@ -683,7 +683,7 @@ namespace LightGBMNet.Train
         /// <param name="outStrs">names of eval result, need to pre-allocate memory before call this</param>
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_BoosterGetEvalNames", CallingConvention = CallingConvention.StdCall)]
-        public static extern int BoosterGetEvalNames(IntPtr handle, ref int outLen, IntPtr[] outStrs);
+        public static extern int BoosterGetEvalNames(IntPtr handle, int len, ref int outLen, UInt64 bufferLen, ref UInt64 outBufferLen, IntPtr[] outStrs);
 
         /// <summary>
         /// Get name of features
@@ -693,7 +693,7 @@ namespace LightGBMNet.Train
         /// <param name="outStrs">names of features, need to pre-allocate memory before call this</param>
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_BoosterGetFeatureNames", CallingConvention = CallingConvention.StdCall)]
-        public static extern int BoosterGetFeatureNames(IntPtr handle, ref int outLen, IntPtr[] outStrs);
+        public static extern int BoosterGetFeatureNames(IntPtr handle, int len, ref int outLen, UInt64 bufferLen, ref UInt64 outBufferLen, IntPtr[] outStrs);
 
         /// <summary>
         /// Get number of features

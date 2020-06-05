@@ -299,7 +299,7 @@ namespace LightGBMNet.Train
                 case "cross_entropy":
                     return MetricType.XEntropy;
                 case "xentlambda":
-                case "cross_entity_lambda":
+                case "cross_entropy_lambda":
                     return MetricType.XentLambda;
                 case "kldiv":
                 case "kullback_leibler":
