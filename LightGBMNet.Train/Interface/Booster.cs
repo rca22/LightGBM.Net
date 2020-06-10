@@ -80,6 +80,19 @@ namespace LightGBMNet.Train
 
         public Booster(Parameters parameters, Dataset trainset, Dataset validset = null)
         {
+            if (trainset.CommonParameters != parameters.Common)
+                throw new Exception("CommonParameters differ from those used to create training set");
+            if (trainset.DatasetParameters != parameters.Dataset)
+                throw new Exception("DatasetParameters differ from those used to create training set");
+
+            if (validset != null)
+            {
+                if (validset.CommonParameters != parameters.Common)
+                    throw new Exception("CommonParameters differ from those used to create validation set");
+                if (validset.DatasetParameters != parameters.Dataset)
+                    throw new Exception("DatasetParameters differ from those used to create validation set");
+            }
+
             var param = parameters.ToString();
             var handle = IntPtr.Zero;
             PInvokeException.Check(PInvoke.BoosterCreate(trainset.Handle, param, ref handle),nameof(PInvoke.BoosterCreate));
@@ -227,9 +240,12 @@ namespace LightGBMNet.Train
                     for (int i = 0; i < ptrs.Length; ++i)
                         ptrs[i] = Marshal.AllocCoTaskMem(sizeof(char) * PInvoke.MAX_PREALLOCATED_STRING_LENGTH);
                     var retNumEval = 0;
-                    PInvokeException.Check(PInvoke.BoosterGetEvalNames(Handle, ref retNumEval, ptrs), nameof(PInvoke.BoosterGetEvalNames));
+                    ulong retBufferLen = 0;
+                    PInvokeException.Check(PInvoke.BoosterGetEvalNames(Handle, numEval, ref retNumEval, (ulong)PInvoke.MAX_PREALLOCATED_STRING_LENGTH, ref retBufferLen, ptrs), nameof(PInvoke.BoosterGetEvalNames));
                     if (numEval != retNumEval)
                         throw new Exception("Unexpected number of names returned");
+                    if (retBufferLen > (ulong)PInvoke.MAX_PREALLOCATED_STRING_LENGTH)
+                        throw new Exception($"Max eval name length is {retBufferLen}, which is greater than max supported length {PInvoke.MAX_PREALLOCATED_STRING_LENGTH}.");
                     for (int i = 0; i < ptrs.Length; ++i)
                         rslts[i] = EnumHelper.ParseMetric(Marshal.PtrToStringAnsi(ptrs[i]));
                 }
@@ -463,10 +479,13 @@ namespace LightGBMNet.Train
                     for (int i = 0; i < ptrs.Length; ++i)
                         ptrs[i] = Marshal.AllocCoTaskMem(sizeof(char) * PInvoke.MAX_PREALLOCATED_STRING_LENGTH);
                     int retFeatureNames = 0;
-                    PInvokeException.Check(PInvoke.BoosterGetFeatureNames(Handle, ref retFeatureNames, ptrs),
+                    ulong retBufferLen = 0;
+                    PInvokeException.Check(PInvoke.BoosterGetFeatureNames(Handle, numFeatureNames, ref retFeatureNames, (ulong)PInvoke.MAX_PREALLOCATED_STRING_LENGTH, ref retBufferLen, ptrs),
                                            nameof(PInvoke.BoosterGetFeatureNames));
                     if (retFeatureNames != numFeatureNames)
                         throw new Exception("Unexpected number of feature names returned");
+                    if (retBufferLen > (ulong)PInvoke.MAX_PREALLOCATED_STRING_LENGTH)
+                        throw new Exception($"Max feature name length is {retBufferLen}, which is greater than max supported length {PInvoke.MAX_PREALLOCATED_STRING_LENGTH}.");
                     for (int i = 0; i < ptrs.Length; ++i)
                         rslts[i] = Marshal.PtrToStringAnsi(ptrs[i]);
                 }
@@ -731,6 +750,13 @@ namespace LightGBMNet.Train
                 Objective = _helperObjective.FromParameters(prms),
                 Learning = _helperLearning.FromParameters(prms)
                 };
+
+            // irrelevant parameter for managed trees which always use NaN for missing value
+            prms.Remove("zero_as_missing");
+            if (prms.Count > 0)
+            {
+                Console.WriteLine($"WARNING: Unknown new parameters {String.Join(",", prms.Keys)}");
+            }
             
             return (res, p);
         }

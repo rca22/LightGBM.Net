@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -16,13 +17,43 @@ namespace LightGBMNet.Train.Test
             for (int test = 0; test < 100; ++test)
                 using (var dataSet = DatasetTest.CreateRandom(rand))
                 {
-                    var pms = new Parameters();
+                    var pms = new Parameters() { Common = dataSet.CommonParameters, Dataset = dataSet.DatasetParameters };
                     using (var booster = new Booster(pms, dataSet))
                     {
                     }
                 }
         }
 
+        [Fact]
+        public void CheckDefaultParameters()
+        {
+            var rand = new Random();
+            using (var dataSet = DatasetTest.CreateRandom(rand, useDefaultDatasetParameters:true))
+            {
+                var pms = new Parameters() { Common = dataSet.CommonParameters, Dataset = dataSet.DatasetParameters };
+                using (var booster = new Booster(pms, dataSet))
+                {
+                    (var tree, var pmsout) = booster.GetModel();
+                    if (pms != pmsout)
+                    {
+                        var dict = pms.ToDict();
+                        var dictout = pmsout.ToDict();
+                        var keys = dict.Keys.Concat(dictout.Keys).Distinct();
+                        foreach (var key in keys)
+                        {
+                            dict.TryGetValue(key, out string valIn);
+                            dictout.TryGetValue(key, out string valOut);
+                            if (valIn != valOut)
+                                throw (new Exception($"Default value of {key} mismatch: {valIn} vs {valOut}"));
+                        }
+                    }
+                }
+            }
+        }
+
+        // This functionality is disabled due to a new bug in LightGBM that the maintainers refuse to look at
+        // https://github.com/microsoft/LightGBM/issues/3152
+#if false
         [Fact]
         public void ResetTrainingData()
         {
@@ -45,6 +76,7 @@ namespace LightGBMNet.Train.Test
                     }
                 }
         }
+#endif
 
         [Fact]
         public void GetNumPredict_GetPredict()
@@ -53,7 +85,7 @@ namespace LightGBMNet.Train.Test
             for (int test = 0; test < 100; ++test)
                 using (var dataSet = DatasetTest.CreateRandom(rand))
                 {
-                    var pms = new Parameters();
+                    var pms = new Parameters() { Common = dataSet.CommonParameters, Dataset = dataSet.DatasetParameters };
                     pms.Objective.Metric = MetricType.MultiLogLoss;
                     pms.Objective.NumClass = rand.Next(2, 4);
                     pms.Objective.Objective = ObjectiveType.MultiClass;
@@ -75,7 +107,7 @@ namespace LightGBMNet.Train.Test
             for (int test = 0; test < 100; ++test)
                 using (var dataSet = DatasetTest.CreateRandom(rand))
                 {
-                    var pms = new Parameters();
+                    var pms = new Parameters() { Common = dataSet.CommonParameters, Dataset = dataSet.DatasetParameters };
                     using (var booster = new Booster(pms, dataSet))
                     {
                         Assert.Equal(booster.NumFeatures, dataSet.NumFeatures);
@@ -97,7 +129,7 @@ namespace LightGBMNet.Train.Test
                         names[i] = string.Format("name{0}", i);
                     dataSet.SetFeatureNames(names);
 
-                    var pms = new Parameters();
+                    var pms = new Parameters() { Common = dataSet.CommonParameters, Dataset = dataSet.DatasetParameters };
                     using (var booster = new Booster(pms, dataSet))
                     {
                         Assert.Equal(1, booster.NumClasses);
@@ -119,9 +151,9 @@ namespace LightGBMNet.Train.Test
             for (int test = 0; test < 100; ++test)
                 using (var dataSet = DatasetTest.CreateRandom(rand))
                 {
-                    var pms = new Parameters();
+                    var pms = new Parameters() { Common = dataSet.CommonParameters, Dataset = dataSet.DatasetParameters };
                     var metric = CreateRandomMetric(rand);
-                    if (metric != MetricType.Ndcg && metric != MetricType.Map && (pms.Objective.NumClass > 1 || (metric != MetricType.MultiLogLoss && metric != MetricType.MultiError)))
+                    if (metric != MetricType.Ndcg && metric != MetricType.Map && (pms.Objective.NumClass > 1 || (metric != MetricType.MultiLogLoss && metric != MetricType.MultiError && metric != MetricType.AucMu)))
                     {
                         if (metric == MetricType.Gamma || 
                             metric == MetricType.GammaDeviance ||
@@ -159,7 +191,7 @@ namespace LightGBMNet.Train.Test
             for (int test = 0; test < 100; ++test)
                 using (var dataSet = DatasetTest.CreateRandom(rand))
                 {
-                    var pms = new Parameters();
+                    var pms = new Parameters() { Common = dataSet.CommonParameters, Dataset = dataSet.DatasetParameters };
                     pms.Objective.Metric = MetricType.MultiLogLoss;
                     pms.Objective.NumClass = rand.Next(2, 4);
                     pms.Objective.Objective = ObjectiveType.MultiClass;

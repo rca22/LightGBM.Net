@@ -284,6 +284,12 @@ namespace LightGBMNet.Train
             // check parameter strings
             if (learningRateSchedule != null)
                 argsout.Learning.LearningRate = args.Learning.LearningRate;
+            // if both ForceColWise and ForceRowWise are false on the input, LightGBM appears to set one of them to be true on the output?
+            if (!args.Learning.ForceColWise && !args.Learning.ForceRowWise)
+            {
+                argsout.Learning.ForceColWise = false;
+                argsout.Learning.ForceRowWise = false;
+            }
             var strIn  = args.ToString();
             var strOut = argsout.ToString();
             if (strIn != strOut)
@@ -342,6 +348,12 @@ namespace LightGBMNet.Train
             // check parameter strings
             if (learningRateSchedule != null)
                 argsout.Learning.LearningRate = args.Learning.LearningRate;
+            // if both ForceColWise and ForceRowWise are false on the input, LightGBM appears to set one of them to be true on the output?
+            if (!args.Learning.ForceColWise && !args.Learning.ForceRowWise)
+            {
+                argsout.Learning.ForceColWise = false;
+                argsout.Learning.ForceRowWise = false;
+            }
             var strIn = args.ToString();
             var strOut = argsout.ToString();
             if (strIn != strOut)

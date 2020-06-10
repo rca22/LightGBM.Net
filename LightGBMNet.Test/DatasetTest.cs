@@ -78,17 +78,18 @@ namespace LightGBMNet.Train.Test
             return rslt;
         }
 
-        public static Dataset CreateRandom(Random rand)
+        public static Dataset CreateRandom(Random rand, bool useDefaultDatasetParameters = false)
         {
             var numTotalRow = rand.Next(100, 500);
             var numColumns = rand.Next(1, 10);
 
             var cp = new CommonParameters();
-            var dp = new DatasetParameters
+            var dp = new DatasetParameters();
+            if (!useDefaultDatasetParameters)
             {
-                MinDataInLeaf = 1,
-                MinDataInBin = 1
-            };
+                dp.MinDataInLeaf = 1;
+                dp.MinDataInBin = 1;
+            }
 
             if (rand.Next(3) == 0)
             {

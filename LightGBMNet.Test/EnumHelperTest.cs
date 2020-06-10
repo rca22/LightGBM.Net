@@ -70,5 +70,18 @@ namespace LightGBMNet.Train.Test
                 Assert.Equal(v, vBar);
             }
         }
+
+        [Fact]
+        public void TestMonotoneConstraintsMethod()
+        {
+            var vals = (MonotoneConstraintsMethod[])Enum.GetValues(typeof(MonotoneConstraintsMethod));
+            foreach (var v in vals)
+            {
+                var s = EnumHelper.GetMonotoneConstraintsMethodString(v);
+                var vBar = EnumHelper.ParseMonotoneConstraintsMethod(s);
+                Assert.Equal(v, vBar);
+            }
+        }
+
     }
 }
