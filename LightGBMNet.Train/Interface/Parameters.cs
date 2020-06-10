@@ -38,7 +38,8 @@ namespace LightGBMNet.Train
         XEntropy = 12,      // TODO
         XEntLambda = 13,    // TODO
         // ranking
-        LambdaRank = 14
+        LambdaRank = 14,
+        RankXendcg = 15
     }
 
     public enum BoostingType : int
@@ -69,6 +70,14 @@ namespace LightGBMNet.Train
     {
         CPU,
         GPU
+    }
+
+    public enum MonotoneConstraintsMethod
+    {
+        /// basic, the most basic monotone constraints method. It does not slow the library at all, but over-constrains the predictions
+        Basic,
+        /// intermediate, a more advanced method, which may slow the library very slightly. However, this method is much less constraining than the basic method and should significantly improve the results
+        Intermediate
     }
 
     public enum VerbosityType : int
@@ -149,6 +158,8 @@ namespace LightGBMNet.Train
         /// for one sample: 0 for correct classification, 1 for error classification
         /// </summary>
         BinaryError,
+        /// AUC-mu
+        AucMu,
         /// <summary>
         /// log loss for multi-class classification
         /// </summary>
@@ -213,6 +224,8 @@ namespace LightGBMNet.Train
                     return "binary_logloss";
                 case MetricType.BinaryError:
                     return "binary_error";
+                case MetricType.AucMu:
+                    return "auc_mu";
                 case MetricType.MultiLogLoss:
                     return "multi_logloss";
                 case MetricType.MultiError:
@@ -285,6 +298,8 @@ namespace LightGBMNet.Train
                     return MetricType.BinaryLogLoss;
                 case "binary_error":
                     return MetricType.BinaryError;
+                case "auc_mu":
+                    return MetricType.AucMu;
                 case "multi_logloss":
                 case "multiclass":
                 case "softmax":
@@ -362,6 +377,7 @@ namespace LightGBMNet.Train
                 case ObjectiveType.XEntropy:     return "xentropy";
                 case ObjectiveType.XEntLambda:   return "xentlambda";
                 case ObjectiveType.LambdaRank:   return "lambdarank";
+                case ObjectiveType.RankXendcg:   return "rank_xendcg";
                 default:
                     throw new ArgumentException("ObjectiveType not recognised");
             }
@@ -408,6 +424,7 @@ namespace LightGBMNet.Train
                 case "cross_entropy_lambda":
                     return ObjectiveType.XEntLambda;
                 case "lambdarank":    return ObjectiveType.LambdaRank;
+                case "rank_xendcg": return ObjectiveType.RankXendcg;
                 default:
                     throw new ArgumentException("ObjectiveType not recognised");
             }
@@ -497,6 +514,28 @@ namespace LightGBMNet.Train
                 case "gpu": return DeviceType.GPU;
                 default:
                     throw new ArgumentException("DeviceType not recognised");
+            }
+        }
+        
+        public static string GetMonotoneConstraintsMethodString(MonotoneConstraintsMethod d)
+        {
+            switch (d)
+            {
+                case MonotoneConstraintsMethod.Basic: return "basic";
+                case MonotoneConstraintsMethod.Intermediate: return "intermediate";
+                default:
+                    throw new ArgumentException("MonotoneConstraintsMethod not recognised");
+            }
+        }
+
+        public static MonotoneConstraintsMethod ParseMonotoneConstraintsMethod(string x)
+        {
+            switch (x)
+            {
+                case "basic": return MonotoneConstraintsMethod.Basic;
+                case "intermediate": return MonotoneConstraintsMethod.Intermediate;
+                default:
+                    throw new ArgumentException("MonotoneConstraintsMethod not recognised");
             }
         }
 
@@ -599,6 +638,8 @@ namespace LightGBMNet.Train
                 return x => (object)EnumHelper.ParseDevice(x);
             else if (typ == typeof(VerbosityType))
                 return x => (object)EnumHelper.ParseVerbosity(x);
+            else if (typ == typeof(MonotoneConstraintsMethod))
+                return x => (object)EnumHelper.ParseMonotoneConstraintsMethod(x);
             else
                 throw new Exception(string.Format("Unhandled parameter type {0}", typ));
         }
@@ -635,6 +676,8 @@ namespace LightGBMNet.Train
                 return x => EnumHelper.GetDeviceString((DeviceType)x);
             else if (typ == typeof(VerbosityType))
                 return x => EnumHelper.GetVerbosityString((VerbosityType)x);
+            else if (typ == typeof(MonotoneConstraintsMethod))
+                return x => EnumHelper.GetMonotoneConstraintsMethodString((MonotoneConstraintsMethod)x);
             else
                 throw new Exception(string.Format("Unhandled parameter type {0}", typ));
         }
@@ -749,20 +792,23 @@ namespace LightGBMNet.Train
         {
             var rslt = new T();
             Tuple<PropertyInfo,ParseFunction> pair = null;
-            foreach (var pm in pms)
+            var keys = pms.Keys.ToArray();
+            foreach (var key in keys)
             {
-                if (_argToProp.TryGetValue(pm.Key, out pair))
+                if (_argToProp.TryGetValue(key, out pair))
                 {
+                    var value = pms[key];
                     try
                     {
                         var prop = pair.Item1;
                         var parser = pair.Item2;
-                        var obj = parser(pm.Value);
+                        var obj = parser(value);
                         prop.SetValue(rslt, obj);
+                        pms.Remove(key);
                     }
                     catch (Exception e)
                     {
-                        throw new FormatException($"Cannot parse '{pm.Value}' for parameter {pm.Key}", e);
+                        throw new FormatException($"Cannot parse '{value}' for parameter {key}", e);
                     }
                 }
             }
@@ -870,54 +916,15 @@ namespace LightGBMNet.Train
         /// </summary>
         public bool EnableBundle { get; set; } = true;
 
-        private double _maxConflictRate = 0.0;
-        /// <summary>
-        /// Max conflict rate for bundles in EFB
-        /// Set this to 0.0 to disallow the conflict and provide more accurate results
-        /// Set this to a larger value to achieve faster speed
-        /// </summary>
-        public double MaxConflictRate
-        {
-            get { return _maxConflictRate; }
-            set
-            {
-                if (value < 0.0 || value >= 1.0)
-                    throw new ArgumentOutOfRangeException("max_conflict_rate");
-                _maxConflictRate = value;
-            }
-        }
-
         /// <summary>
         /// Used to enable/disable sparse optimization
         /// </summary>
         public bool IsEnableSparse { get; set; } = true;
 
-        private double _sparseThreshold = 0.8;
-        /// <summary>
-        /// The threshold of zero elements percentage for treating a feature as a sparse one.
-        /// </summary>
-        public double SparseThreshold
-        {
-            get { return _sparseThreshold; }
-            set
-            {
-                if (value <= 0.0 || value > 1.0)
-                    throw new ArgumentOutOfRangeException("sparse_threshold");
-                _sparseThreshold = value;
-            }
-        }
-
         /// <summary>
         /// Set this to false to disable the special handle of missing value
         /// </summary>
         public bool UseMissing { get; set; } = true;
-
-        // Not supported by managed trees
-        // <summary>
-        // Set this to true to treat all zero as missing values (including the unshown values in libsvm/sparse matrices)
-        // Set this to false to use na for representing missing values
-        // </summary>
-        //public bool ZeroAsMissing { get; set; } = false;
 
         // These are only used when LightGBM loading directly from file
         //public bool TwoRound { get; set; } = false;
@@ -991,6 +998,24 @@ namespace LightGBMNet.Train
         /// Set this to false to ignore binary datasets
         /// </summary>
         public bool EnableLoadFromBinaryFile { get; set; } = true;
+
+        /// <summary>
+        /// Set this to true to pre-filter the unsplittable features by min_data_in_leaf
+        /// </summary>
+        public bool FeaturePreFilter { get; set; } = true;
+
+        /// <summary>
+        /// Set this to true if data file is too big to fit in memory.
+        /// By default, LightGBM will map data file to memory and load features from memory.This will provide faster data loading speed, but may cause run out of memory error when the data file is very big.
+        /// Note: works only in case of loading data directly from file.
+        /// </summary>
+        public bool TwoRound { get; set; } = false;
+
+        /// <summary>
+        /// Set this to true if input data has header.
+        /// Note: works only in case of loading data directly from file.
+        /// </summary>
+        public bool Header { get; set; } = false;
 
         // These are just for prediction task
         // public bool PredictRawScore { get; set; } = false;
@@ -1436,6 +1461,171 @@ namespace LightGBMNet.Train
         //    }
         //}
 
+        /// <summary>
+        /// Set this to true to force col-wise histogram building
+        /// </summary>
+        public bool ForceColWise { get; set; } = false;
+
+        /// <summary>
+        /// Set this to true to force row-wise histogram building
+        /// </summary>
+        public bool ForceRowWise { get; set; } = false;
+
+        private double _pos_bagging_fraction = 1.0;
+        /// <summary>
+        /// Used for imbalanced binary classification problem, will randomly sample #pos_samples * pos_bagging_fraction positive samples in bagging
+        /// </summary>
+        public double PosBaggingFraction
+        {
+            get { return _pos_bagging_fraction; }
+            set
+            {
+                if (value <= 0.0 || value > 1.0)
+                    throw new ArgumentOutOfRangeException("PosBaggingFraction");
+                _pos_bagging_fraction = value;
+            }
+        }
+
+        private double _neg_bagging_fraction = 1.0;
+        /// <summary>
+        /// Used for imbalanced binary classification problem, will randomly sample #neg_samples * neg_bagging_fraction positive samples in bagging
+        /// </summary>
+        public double NegBaggingFraction
+        {
+            get { return _neg_bagging_fraction; }
+            set
+            {
+                if (value <= 0.0 || value > 1.0)
+                    throw new ArgumentOutOfRangeException("NegBaggingFraction");
+                _neg_bagging_fraction = value;
+            }
+        }
+
+        private double _feature_fraction_bynode = 1.0;
+        /// <summary>
+        /// LightGBM will randomly select part of features on each tree node if feature_fraction_bynode smaller than 1.0. For example, if you set it to 0.8, LightGBM will select 80% of features at each tree node
+        /// </summary>
+        public double FeatureFractionBynode
+        {
+            get { return _feature_fraction_bynode; }
+            set
+            {
+                if (value <= 0.0 || value > 1.0)
+                    throw new ArgumentOutOfRangeException("FeatureFractionBynode");
+                _feature_fraction_bynode = value;
+            }
+        }
+
+        /// <summary>
+        /// Use extremely randomized trees? if set to true, when evaluating node splits LightGBM will check only one randomly-chosen threshold for each feature.
+        /// </summary>
+        public bool ExtraTrees { get; set; } = false;
+
+        private int _extra_seed = 6;
+        /// <summary>
+        /// Random seed for selecting thresholds when extra_trees is true
+        /// </summary>
+        public int ExtraSeed
+        {
+            get { return _extra_seed; }
+            set
+            {
+                if (value <= 0)
+                    throw new ArgumentOutOfRangeException("ExtraSeed");
+                _extra_seed = value;
+            }
+        }
+
+        /// <summary>
+        /// Set this to true, if you want to use only the first metric for early stopping
+        /// </summary>
+        public bool FirstMetricOnly { get; set; } = false;
+
+        /// <summary>
+        /// Monotone constraints method.  Used only if monotone_constraints is set.
+        /// </summary>
+        public MonotoneConstraintsMethod MonotoneConstraintsMethod { get; set; } = MonotoneConstraintsMethod.Basic;
+
+        private double _monotone_penalty = 0.0;
+        /// <summary>
+        /// A penalization parameter X forbids any monotone splits on the first X (rounded down) level(s) of the tree.
+        /// The penalty applied to monotone splits on a given depth is a continuous, increasing function the penalization parameter.
+        /// </summary>
+        public double MonotonePenalty
+        {
+            get { return _monotone_penalty; }
+            set
+            {
+                if (value < 0.0)
+                    throw new ArgumentOutOfRangeException("MonotonePenalty");
+                _monotone_penalty = value;
+            }
+        }
+
+        private double _refit_decay_rate = 0.9;
+        /// <summary>
+        /// Decay rate of refit task, will use leaf_output = refit_decay_rate * old_leaf_output + (1.0 - refit_decay_rate) * new_leaf_output to refit trees
+        /// </summary>
+        public double RefitDecayRate
+        {
+            get { return _refit_decay_rate; }
+            set
+            {
+                if (value < 0.0 || value > 1.0)
+                    throw new ArgumentOutOfRangeException("RefitDecayRate");
+                _refit_decay_rate = value;
+            }
+        }
+
+        private double _cegb_tradeoff = 1.0;
+        /// <summary>
+        /// Cost-effective gradient boosting multiplier for all penalties
+        /// </summary>
+        public double CegbTradeoff
+        {
+            get { return _cegb_tradeoff; }
+            set
+            {
+                if (value < 0.0)
+                    throw new ArgumentOutOfRangeException("CegbTradeoff");
+                _cegb_tradeoff = value;
+            }
+        }
+
+        private double _cegb_penalty_split = 0.0;
+        /// <summary>
+        /// Cost-effective gradient-boosting penalty for splitting a node
+        /// </summary>
+        public double CegbPenaltySplit
+        {
+            get { return _cegb_penalty_split; }
+            set
+            {
+                if (value < 0.0)
+                    throw new ArgumentOutOfRangeException("CegbPenaltySplit");
+                _cegb_penalty_split = value;
+            }
+        }
+
+        private double _path_smooth = 0.0;
+        /// <summary>
+        /// Controls smoothing applied to tree nodes, helps prevent overfitting on leaves with few samples. 
+        /// If set to zero, no smoothing is applied.  If path_smooth > 0 then min_data_in_leaf must be at least 2.
+        /// Larger values give stronger regularisation.
+        /// The weight of each node is (n / path_smooth) * w + w_p / (n / path_smooth + 1), where n is the number of samples in the node, w is the optimal node weight to minimise the loss(approximately -sum_gradients / sum_hessians), and w_p is the weight of the parent node.
+        /// Note that the parent output w_p itself has smoothing applied, unless it is the root node, so that the smoothing effect accumulates with the tree depth.
+        /// </summary>
+        public double PathSmooth
+        {
+            get { return _path_smooth; }
+            set
+            {
+                if (value < 0.0)
+                    throw new ArgumentOutOfRangeException("PathSmooth");
+                _path_smooth = value;
+            }
+        }
+
         #endregion
 
         public LearningParameters() : base() { }
@@ -1674,6 +1864,62 @@ namespace LightGBMNet.Train
             }
         }
 
+        private int _objective_seed = 5;
+        /// <summary>
+        /// Used only in rank_xendcg objective. Random seed for objectives, if random process is needed.
+        /// </summary>
+        public int ObjectiveSeed
+        {
+            get { return _objective_seed; }
+            set
+            {
+                if (value < 0)
+                    throw new ArgumentOutOfRangeException("ObjectiveSeed");
+                _objective_seed = value;
+            }
+        }
+
+        private int _lambdarank_truncation_level = 20;
+        /// <summary>
+        /// Used only in lambdarank application. Used for truncating the max DCG, refer to “truncation level” in the Sec. 3 of LambdaMART paper.
+        /// </summary>
+        public int LambdarankTruncationLevel
+        {
+            get { return _lambdarank_truncation_level; }
+            set
+            {
+                if (value <= 0)
+                    throw new ArgumentOutOfRangeException("LambdarankTruncationLevel");
+                _lambdarank_truncation_level = value;
+            }
+        }
+
+        /// <summary>
+        /// Used only in lambdarank application.
+        /// Set this to true to normalize the lambdas for different queries, and improve the performance for unbalanced data.
+        /// Set this to false to enforce the original lambdarank algorithm.
+        /// </summary>
+        public bool LambdarankNorm { get; set; } = true;
+
+        private int _multi_error_top_k = 1;
+        /// <summary>
+        /// Used only with multi_error metric.
+        /// Threshold for top-k multi-error metric.
+        /// The error on each sample is 0 if the true class is among the top multi_error_top_k predictions, and 1 otherwise.
+        /// More precisely, the error on a sample is 0 if there are at least num_classes - multi_error_top_k predictions strictly less than the prediction on the true class.
+        /// When multi_error_top_k=1 this is equivalent to the usual multi-error metric.
+        /// </summary>
+        public int MultiErrorTopK
+        {
+            get { return _multi_error_top_k; }
+            set
+            {
+                if (value <= 0)
+                    throw new ArgumentOutOfRangeException("MultiErrorTopK");
+                _multi_error_top_k = value;
+            }
+        }
+
         // CLI only
         // public bool IsProvideTrainingMetric { get; set; } = false;
 
@@ -1831,18 +2077,18 @@ namespace LightGBMNet.Train
         /// OpenCL platform ID. Usually each GPU vendor exposes one OpenCL platform.
         /// -1 means the system-wide default platform.
         /// </summary>
-        public int GPUPlatformId { get; set; } = -1;
+        public int GpuPlatformId { get; set; } = -1;
 
         /// <summary>
         /// OpenCL device ID in the specified platform. Each GPU in the selected platform has a unique device ID.
         /// -1 means the default device in the selected platform
         /// </summary>
-        public int GPUDeviceId { get; set; } = -1;
+        public int GpuDeviceId { get; set; } = -1;
 
         /// <summary>
         /// Set this to true to use double precision math on GPU (by default single precision is used).
         /// </summary>
-        public bool GPUUseDP { get; set; } = false;
+        public bool GpuUseDp { get; set; } = false;
         #endregion
 
         public CommonParameters(Dictionary<string, string> data)

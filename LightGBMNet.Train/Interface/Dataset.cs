@@ -13,6 +13,9 @@ namespace LightGBMNet.Train
         private int _lastPushedRowID;
         internal IntPtr Handle => _handle;
 
+        public CommonParameters CommonParameters { get; }
+        public DatasetParameters DatasetParameters { get; }
+
         private static string ParamsToString(CommonParameters cp, DatasetParameters dp)
         {
             var dict = new Dictionary<string, string>();
@@ -21,11 +24,12 @@ namespace LightGBMNet.Train
             return ParamsHelper.JoinParameters(dict);
         }
 
-        private Dataset(IntPtr h)
+        private Dataset(IntPtr h, CommonParameters cp, DatasetParameters dp)
         {
             _handle = h;
+            CommonParameters = cp;
+            DatasetParameters = dp;
         }
-
 
         public unsafe Dataset(double[][] sampleValuePerColumn,
             int[][] sampleIndicesPerColumn,
@@ -39,6 +43,8 @@ namespace LightGBMNet.Train
             float[] weights = null,
             int[] groups = null)
         {
+            CommonParameters = cp;
+            DatasetParameters = dp;
             var pmString = ParamsToString(cp, dp);
 
             _handle = IntPtr.Zero;
@@ -99,6 +105,8 @@ namespace LightGBMNet.Train
             int[] groups = null,
             Dataset reference = null)
         {
+            CommonParameters = cp;
+            DatasetParameters = dp;
             var pmString = ParamsToString(cp, dp);
 
             _handle = IntPtr.Zero;
@@ -161,6 +169,8 @@ namespace LightGBMNet.Train
             int[] groups = null,
             Dataset reference = null)
         {
+            CommonParameters = cp;
+            DatasetParameters = dp;
             var pmString = ParamsToString(cp, dp);
 
             _handle = IntPtr.Zero;
@@ -195,13 +205,18 @@ namespace LightGBMNet.Train
                 throw new Exception("Expected GetNumRows to be equal to numTotalRow");
         }
 
-        public Dataset(Dataset reference, int numTotalRow, float[] labels = null, float[] weights = null, int[] groups = null)
+        // This constructor is disabled due to a bug in LightGBM that the maintainers refuse to look at
+        // https://github.com/microsoft/LightGBM/issues/3152
+        private Dataset(Dataset reference, int numTotalRow, float[] labels = null, float[] weights = null, int[] groups = null)
         {
             IntPtr refHandle = (reference == null ? IntPtr.Zero : reference.Handle);
 
             PInvokeException.Check(PInvoke.DatasetCreateByReference(refHandle, numTotalRow, ref _handle),
                                    nameof(PInvoke.DatasetCreateByReference));
-            if(labels != null)
+            
+            CommonParameters = reference.CommonParameters;
+            DatasetParameters = reference.DatasetParameters;
+            if (labels != null)
                 SetLabels(labels);
             if (weights != null)
                 SetWeights(weights);
@@ -218,6 +233,8 @@ namespace LightGBMNet.Train
             if (!fileName.EndsWith(".bin"))
                 throw new ArgumentException(string.Format("File {0} is not a .bin file", fileName));
 
+            CommonParameters = cp;
+            DatasetParameters = dp;
             var pmString = ParamsToString(cp, dp);
 
             IntPtr refHandle = (reference == null ? IntPtr.Zero : reference.Handle);
@@ -444,12 +461,14 @@ namespace LightGBMNet.Train
 
         public unsafe Dataset GetSubset(int[] usedRowIndices, CommonParameters cp = null, DatasetParameters dp = null)
         {
+            if (cp == null) cp = CommonParameters;
+            if (dp == null) dp = DatasetParameters;
             var pmString = ParamsToString(cp, dp);
             IntPtr p = IntPtr.Zero;
             fixed (int* usedRowIndices2 = usedRowIndices)
                 PInvokeException.Check(PInvoke.DatasetGetSubset(_handle, usedRowIndices2, usedRowIndices.Length, pmString, ref p),
                                    nameof(PInvoke.DatasetGetSubset));
-            return new Dataset(p);
+            return new Dataset(p, cp, dp);
         }
 
         private static readonly int MAX_FEATURE_NAME_LENGTH = 100;

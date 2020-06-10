@@ -80,6 +80,19 @@ namespace LightGBMNet.Train
 
         public Booster(Parameters parameters, Dataset trainset, Dataset validset = null)
         {
+            if (trainset.CommonParameters != parameters.Common)
+                throw new Exception("CommonParameters differ from those used to create training set");
+            if (trainset.DatasetParameters != parameters.Dataset)
+                throw new Exception("DatasetParameters differ from those used to create training set");
+
+            if (validset != null)
+            {
+                if (validset.CommonParameters != parameters.Common)
+                    throw new Exception("CommonParameters differ from those used to create validation set");
+                if (validset.DatasetParameters != parameters.Dataset)
+                    throw new Exception("DatasetParameters differ from those used to create validation set");
+            }
+
             var param = parameters.ToString();
             var handle = IntPtr.Zero;
             PInvokeException.Check(PInvoke.BoosterCreate(trainset.Handle, param, ref handle),nameof(PInvoke.BoosterCreate));
@@ -737,6 +750,13 @@ namespace LightGBMNet.Train
                 Objective = _helperObjective.FromParameters(prms),
                 Learning = _helperLearning.FromParameters(prms)
                 };
+
+            // irrelevant parameter for managed trees which always use NaN for missing value
+            prms.Remove("zero_as_missing");
+            if (prms.Count > 0)
+            {
+                Console.WriteLine($"WARNING: Unknown new parameters {String.Join(",", prms.Keys)}");
+            }
             
             return (res, p);
         }
