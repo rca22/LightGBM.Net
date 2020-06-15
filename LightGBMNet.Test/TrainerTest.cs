@@ -70,7 +70,7 @@ namespace LightGBMNet.Train.Test
             if (rand.Next(2) == 0) pms.Learning.EarlyStoppingRound = rand.Next(1, 20);
             if (rand.Next(2) == 0) pms.Common.DeviceType = DeviceType.GPU;
 
-          //pms.Objective.MetricFreq = rand.Next(1,20); // FIXME: not getting returned in output model?
+            pms.Objective.MetricFreq = rand.Next(1,20);
 
             return pms;
         }

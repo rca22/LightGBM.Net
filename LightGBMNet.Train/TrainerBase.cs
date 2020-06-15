@@ -290,6 +290,9 @@ namespace LightGBMNet.Train
                 argsout.Learning.ForceColWise = false;
                 argsout.Learning.ForceRowWise = false;
             }
+            // for some reason this parameter is not returned in the output model
+            argsout.Objective.MetricFreq = args.Objective.MetricFreq;
+
             var strIn  = args.ToString();
             var strOut = argsout.ToString();
             if (strIn != strOut)
@@ -354,6 +357,9 @@ namespace LightGBMNet.Train
                 argsout.Learning.ForceColWise = false;
                 argsout.Learning.ForceRowWise = false;
             }
+            // for some reason this parameter is not returned in the output model
+            argsout.Objective.MetricFreq = args.Objective.MetricFreq;
+
             var strIn = args.ToString();
             var strOut = argsout.ToString();
             if (strIn != strOut)
