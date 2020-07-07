@@ -205,9 +205,7 @@ namespace LightGBMNet.Train
                 throw new Exception("Expected GetNumRows to be equal to numTotalRow");
         }
 
-        // This constructor is disabled due to a bug in LightGBM that the maintainers refuse to look at
-        // https://github.com/microsoft/LightGBM/issues/3152
-        private Dataset(Dataset reference, int numTotalRow, float[] labels = null, float[] weights = null, int[] groups = null)
+        public Dataset(Dataset reference, int numTotalRow, float[] labels = null, float[] weights = null, int[] groups = null)
         {
             IntPtr refHandle = (reference == null ? IntPtr.Zero : reference.Handle);
 

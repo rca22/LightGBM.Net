@@ -51,9 +51,6 @@ namespace LightGBMNet.Train.Test
             }
         }
 
-        // This functionality is disabled due to a new bug in LightGBM that the maintainers refuse to look at
-        // https://github.com/microsoft/LightGBM/issues/3152
-#if false
         [Fact]
         public void ResetTrainingData()
         {
@@ -61,8 +58,7 @@ namespace LightGBMNet.Train.Test
             for (int test = 0; test < 100; ++test)
                 using (var dataSet = DatasetTest.CreateRandom(rand))
                 {
-                    var pms = new Parameters();
-                    pms.Common.Verbosity = VerbosityType.Error;
+                    var pms = new Parameters() { Common = dataSet.CommonParameters, Dataset = dataSet.DatasetParameters };
                     using (var booster = new Booster(pms, dataSet))
                     {
                         // must have the same characteristics for binning to be able to do this.
@@ -76,7 +72,6 @@ namespace LightGBMNet.Train.Test
                     }
                 }
         }
-#endif
 
         [Fact]
         public void GetNumPredict_GetPredict()
