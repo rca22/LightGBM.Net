@@ -242,6 +242,12 @@ namespace LightGBMNet.Train.Test
                 Dictionary<int, int> categorical = null;
                 var trainData = CreateRandomDenseClassifyData(rand, 2, ref categorical, pms.Dataset.UseMissing, numColumns);
                 var validData = (pms.Learning.EarlyStoppingRound > 0 || rand.Next(2) == 0) ? CreateRandomDenseClassifyData(rand, 2, ref categorical, pms.Dataset.UseMissing, numColumns) : null;
+                // The output cannot be monotone with respect to categorical features
+                if (categorical != null && pms.Dataset.MonotoneConstraints.Length > 0)
+                {
+                    foreach (int i in categorical.Keys)
+                        pms.Dataset.MonotoneConstraints[i] = 0;
+                }
                 pms.Dataset.CategoricalFeature = categorical.Keys.ToArray();
 
                 var learningRateSchedule = (rand.Next(2) == 0) ? (Func<int, double>)null : (iter => pms.Learning.LearningRate * Math.Pow(0.99, iter));
@@ -392,6 +398,12 @@ namespace LightGBMNet.Train.Test
                 Dictionary<int, int> categorical = null;
                 var trainData = CreateRandomDenseClassifyData(rand, pms.Objective.NumClass, ref categorical, pms.Dataset.UseMissing, numColumns);
                 var validData = (pms.Learning.EarlyStoppingRound > 0 || rand.Next(2) == 0) ? CreateRandomDenseClassifyData(rand, pms.Objective.NumClass, ref categorical, pms.Dataset.UseMissing, numColumns) : null;
+                // The output cannot be monotone with respect to categorical features
+                if (categorical != null && pms.Dataset.MonotoneConstraints.Length > 0)
+                {
+                    foreach (int i in categorical.Keys)
+                        pms.Dataset.MonotoneConstraints[i] = 0;
+                }
                 pms.Dataset.CategoricalFeature = categorical.Keys.ToArray();
 
                 var learningRateSchedule = (rand.Next(2) == 0) ? (Func<int, double>)null : (iter => pms.Learning.LearningRate * Math.Pow(0.99, iter));
@@ -582,6 +594,14 @@ namespace LightGBMNet.Train.Test
                     Dictionary<int, int> categorical = null;
                     var trainData = CreateRandomDenseRegressionData(rand, ref categorical, pms.Dataset.UseMissing, numColumns);
                     var validData = (pms.Learning.EarlyStoppingRound > 0 || rand.Next(2) == 0) ? CreateRandomDenseRegressionData(rand, ref categorical, pms.Dataset.UseMissing, numColumns) : null;
+                    // The output cannot be monotone with respect to categorical features
+                    if (categorical != null && pms.Dataset.MonotoneConstraints.Length > 0)
+                    {
+                        foreach (int i in categorical.Keys)
+                            pms.Dataset.MonotoneConstraints[i] = 0;
+                    }
+                    if (objective == ObjectiveType.Mape || objective == ObjectiveType.Quantile || objective == ObjectiveType.RegressionL1)
+                            pms.Dataset.MonotoneConstraints = Array.Empty<int>();
                     pms.Dataset.CategoricalFeature = categorical.Keys.ToArray();
 
                     // make labels positive for certain objective types
@@ -742,6 +762,12 @@ namespace LightGBMNet.Train.Test
                 trainData.Groups = GenGroups(rand, trainData.NumRows);
                 var validData = (pms.Learning.EarlyStoppingRound > 0 || rand.Next(2) == 0) ? CreateRandomDenseClassifyData(rand, numRanks, ref categorical, pms.Dataset.UseMissing, numColumns) : null;
                 if (validData != null) validData.Groups = GenGroups(rand, validData.NumRows);
+                // The output cannot be monotone with respect to categorical features
+                if (categorical != null && pms.Dataset.MonotoneConstraints.Length > 0)
+                {
+                    foreach (int i in categorical.Keys)
+                        pms.Dataset.MonotoneConstraints[i] = 0;
+                }
                 pms.Dataset.CategoricalFeature = categorical.Keys.ToArray();
 
                 var learningRateSchedule = (rand.Next(2) == 0) ? (Func<int, double>)null : (iter => pms.Learning.LearningRate * Math.Pow(0.99, iter));

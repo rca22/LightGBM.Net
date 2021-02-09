@@ -205,23 +205,6 @@ namespace LightGBMNet.Train
                 throw new Exception("Expected GetNumRows to be equal to numTotalRow");
         }
 
-        public Dataset(Dataset reference, int numTotalRow, float[] labels = null, float[] weights = null, int[] groups = null)
-        {
-            IntPtr refHandle = (reference == null ? IntPtr.Zero : reference.Handle);
-
-            PInvokeException.Check(PInvoke.DatasetCreateByReference(refHandle, numTotalRow, ref _handle),
-                                   nameof(PInvoke.DatasetCreateByReference));
-            
-            CommonParameters = reference.CommonParameters;
-            DatasetParameters = reference.DatasetParameters;
-            if (labels != null)
-                SetLabels(labels);
-            if (weights != null)
-                SetWeights(weights);
-            if (groups != null)
-                SetGroups(groups);
-        }
-
         // Load a dataset from file, adding additional parameters and using the optional reference dataset to align bins
         public Dataset(string fileName, CommonParameters cp, DatasetParameters dp, Dataset reference = null)
         {
@@ -509,7 +492,8 @@ namespace LightGBMNet.Train
                     for (int i = 0; i < ptrs.Length; ++i)
                         ptrs[i] = Marshal.AllocCoTaskMem(2 * MAX_FEATURE_NAME_LENGTH + 1);
                     int retFeatureNames = 0;
-                    PInvokeException.Check(PInvoke.DatasetGetFeatureNames(_handle, ptrs, ref retFeatureNames),
+                    long out_buffer_len = 0;
+                    PInvokeException.Check(PInvoke.DatasetGetFeatureNames(_handle, numFeatureNames, ref retFeatureNames, MAX_FEATURE_NAME_LENGTH, ref out_buffer_len, ptrs),
                                            nameof(PInvoke.DatasetGetFeatureNames));
                     if (retFeatureNames != numFeatureNames)
                         throw new Exception("Unexpected number of feature names returned");

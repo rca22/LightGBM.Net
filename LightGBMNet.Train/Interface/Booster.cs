@@ -266,8 +266,9 @@ namespace LightGBMNet.Train
                 throw new ArgumentOutOfRangeException(nameof(startIteration));
             if (numIteration < 0)
                 throw new ArgumentOutOfRangeException(nameof(numIteration));
-
-            PInvokeException.Check(PInvoke.BoosterSaveModel(Handle, startIteration, numIteration, fileName),
+            
+            PInvoke.CApiFeatureImportanceType featImp = PInvoke.CApiFeatureImportanceType.Split;    // not used?
+            PInvokeException.Check(PInvoke.BoosterSaveModel(Handle, startIteration, numIteration, featImp, fileName),
                                    nameof(PInvoke.BoosterSaveModel));
         }
 
@@ -276,8 +277,9 @@ namespace LightGBMNet.Train
             long bufLen = 2L << 16;
             byte[] buffer = new byte[bufLen];
             long size = 0;
+            PInvoke.CApiFeatureImportanceType featImp = PInvoke.CApiFeatureImportanceType.Split;    // not used by consumer of GetModelString?
             fixed (byte* ptr = buffer)
-                PInvokeException.Check(PInvoke.BoosterSaveModelToString(Handle, -1, BestIteration, bufLen, ref size, ptr),
+                PInvokeException.Check(PInvoke.BoosterSaveModelToString(Handle, -1, BestIteration, featImp, bufLen, ref size, ptr),
                                        nameof(PInvoke.BoosterSaveModelToString));
             // If buffer size is not enough, reallocate buffer and get again.
             if (size > bufLen)
@@ -285,7 +287,7 @@ namespace LightGBMNet.Train
                 bufLen = size;
                 buffer = new byte[bufLen];
                 fixed (byte* ptr = buffer)
-                    PInvokeException.Check(PInvoke.BoosterSaveModelToString(Handle, -1, BestIteration, bufLen, ref size, ptr),
+                    PInvokeException.Check(PInvoke.BoosterSaveModelToString(Handle, -1, BestIteration, featImp, bufLen, ref size, ptr),
                                            nameof(PInvoke.BoosterSaveModelToString));
             }
             byte[] content = new byte[size];
@@ -299,8 +301,9 @@ namespace LightGBMNet.Train
             long bufLen = 2L << 15;
             byte[] buffer = new byte[bufLen];
             long size = 0L;
+            PInvoke.CApiFeatureImportanceType featImp = PInvoke.CApiFeatureImportanceType.Split;    // not used?
             fixed (byte* ptr = buffer)
-                PInvokeException.Check(PInvoke.BoosterDumpModel(Handle, startIteration, numIteration, bufLen, ref size, ptr),
+                PInvokeException.Check(PInvoke.BoosterDumpModel(Handle, startIteration, numIteration, featImp, bufLen, ref size, ptr),
                                        nameof(PInvoke.BoosterDumpModel));
             // If buffer size is not enough, reallocate buffer and get again.
             if (size > bufLen)
@@ -308,7 +311,7 @@ namespace LightGBMNet.Train
                 bufLen = size;
                 buffer = new byte[bufLen];
                 fixed (byte* ptr = buffer)
-                    PInvokeException.Check(PInvoke.BoosterDumpModel(Handle, startIteration, numIteration, bufLen, ref size, ptr),
+                    PInvokeException.Check(PInvoke.BoosterDumpModel(Handle, startIteration, numIteration, featImp, bufLen, ref size, ptr),
                                            nameof(PInvoke.BoosterDumpModel));
             }
             byte[] content = new byte[size];
@@ -634,7 +637,7 @@ namespace LightGBMNet.Train
         public long CalcNumPredict(int numRow, PredictType predType, int numIteration)
         {
             long outLen = 0L;
-            PInvokeException.Check(PInvoke.BoosterCalcNumPredict(Handle, numRow, (PInvoke.CApiPredictType)predType, numIteration, ref outLen),
+            PInvokeException.Check(PInvoke.BoosterCalcNumPredict(Handle, numRow, (PInvoke.CApiPredictType)predType, 0, numIteration, ref outLen),
                                   nameof(PInvoke.BoosterCalcNumPredict));
             return outLen;
         }
@@ -753,6 +756,10 @@ namespace LightGBMNet.Train
 
             // irrelevant parameter for managed trees which always use NaN for missing value
             prms.Remove("zero_as_missing");
+            prms.Remove("saved_feature_importance_type");
+            // TODO: add linear trees
+            prms.Remove("linear_tree");
+            prms.Remove("linear_lambda");
             if (prms.Count > 0)
             {
                 Console.WriteLine($"WARNING: Unknown new parameters {String.Join(",", prms.Keys)}");

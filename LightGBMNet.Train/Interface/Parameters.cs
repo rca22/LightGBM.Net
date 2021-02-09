@@ -77,7 +77,9 @@ namespace LightGBMNet.Train
         /// basic, the most basic monotone constraints method. It does not slow the library at all, but over-constrains the predictions
         Basic,
         /// intermediate, a more advanced method, which may slow the library very slightly. However, this method is much less constraining than the basic method and should significantly improve the results
-        Intermediate
+        Intermediate,
+        /// an even more advanced method which may slow the library. However, this method is even less constraining than the intermediate method and should again significantly improve the results.
+        Advanced
     }
 
     public enum VerbosityType : int
@@ -153,6 +155,13 @@ namespace LightGBMNet.Train
         /// Area under the curve
         /// </summary>
         Auc,
+        /// <summary>
+        /// Average precision score <https://scikit-learn.org/stable/modules/generated/sklearn.metrics.average_precision_score.html>
+        /// </summary>
+        AveragePrecision,
+        /// <summary>
+        /// Log loss <https://en.wikipedia.org/wiki/Cross_entropy>
+        /// </summary>
         BinaryLogLoss,
         /// <summary>
         /// for one sample: 0 for correct classification, 1 for error classification
@@ -220,6 +229,8 @@ namespace LightGBMNet.Train
                     return "map";
                 case MetricType.Auc:
                     return "auc";
+                case MetricType.AveragePrecision:
+                    return "average_precision";
                 case MetricType.BinaryLogLoss:
                     return "binary_logloss";
                 case MetricType.BinaryError:
@@ -293,6 +304,8 @@ namespace LightGBMNet.Train
                     return MetricType.Map;
                 case "auc":
                     return MetricType.Auc;
+                case "average_precision":
+                    return MetricType.AveragePrecision;
                 case "binary_logloss":
                 case "binary":
                     return MetricType.BinaryLogLoss;
@@ -523,6 +536,7 @@ namespace LightGBMNet.Train
             {
                 case MonotoneConstraintsMethod.Basic: return "basic";
                 case MonotoneConstraintsMethod.Intermediate: return "intermediate";
+                case MonotoneConstraintsMethod.Advanced: return "advanced";
                 default:
                     throw new ArgumentException("MonotoneConstraintsMethod not recognised");
             }
@@ -534,6 +548,7 @@ namespace LightGBMNet.Train
             {
                 case "basic": return MonotoneConstraintsMethod.Basic;
                 case "intermediate": return MonotoneConstraintsMethod.Intermediate;
+                case "advanced": return MonotoneConstraintsMethod.Advanced;
                 default:
                     throw new ArgumentException("MonotoneConstraintsMethod not recognised");
             }
@@ -1626,6 +1641,8 @@ namespace LightGBMNet.Train
             }
         }
 
+        // TODO: add interaction_constraints
+
         #endregion
 
         public LearningParameters() : base() { }
@@ -1879,7 +1896,7 @@ namespace LightGBMNet.Train
             }
         }
 
-        private int _lambdarank_truncation_level = 20;
+        private int _lambdarank_truncation_level = 30;
         /// <summary>
         /// Used only in lambdarank application. Used for truncating the max DCG, refer to “truncation level” in the Sec. 3 of LambdaMART paper.
         /// </summary>
@@ -2072,6 +2089,11 @@ namespace LightGBMNet.Train
         /// </summary>
         public DeviceType DeviceType { get; set; } = DeviceType.CPU;
 
+        /// <summary>
+        /// Setting this to ``true`` should ensure the stable results when using the same data and the same parameters (and different ``num_threads``)
+        /// </summary>
+        public bool Deterministic { get; set; } = false;
+
         #region GPU
         /// <summary>
         /// OpenCL platform ID. Usually each GPU vendor exposes one OpenCL platform.
@@ -2089,6 +2111,11 @@ namespace LightGBMNet.Train
         /// Set this to true to use double precision math on GPU (by default single precision is used).
         /// </summary>
         public bool GpuUseDp { get; set; } = false;
+
+        /// <summary>
+        /// Number of GPUs
+        /// </summary>
+        public int NumGpu { get; set; } = 1;
         #endregion
 
         public CommonParameters(Dictionary<string, string> data)

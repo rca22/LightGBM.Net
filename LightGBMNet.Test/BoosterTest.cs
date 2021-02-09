@@ -52,28 +52,6 @@ namespace LightGBMNet.Train.Test
         }
 
         [Fact]
-        public void ResetTrainingData()
-        {
-            var rand = new Random();
-            for (int test = 0; test < 100; ++test)
-                using (var dataSet = DatasetTest.CreateRandom(rand))
-                {
-                    var pms = new Parameters() { Common = dataSet.CommonParameters, Dataset = dataSet.DatasetParameters };
-                    using (var booster = new Booster(pms, dataSet))
-                    {
-                        // must have the same characteristics for binning to be able to do this.
-                        var dataSet2 = new Dataset(dataSet, dataSet.NumRows / 2);
-                        Assert.Equal(dataSet.NumFeatures,booster.NumFeatures);
-                        Assert.Equal(dataSet.NumRows,booster.GetNumPredict(0));
-                        booster.ResetTrainingData(dataSet2);
-                        Assert.Equal(dataSet2.NumFeatures,booster.NumFeatures);
-                        Assert.Equal(dataSet.NumRows / 2, dataSet2.NumRows);
-                        Assert.Equal(dataSet2.NumRows,booster.GetNumPredict(0));
-                    }
-                }
-        }
-
-        [Fact]
         public void GetNumPredict_GetPredict()
         {
             var rand = new Random();

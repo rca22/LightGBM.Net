@@ -46,6 +46,12 @@ namespace LightGBMNet.Train
             Contrib    = 3
         }
 
+        internal enum CApiFeatureImportanceType : int
+        {
+            Split = 0,
+            Gain  = 1
+        }
+
         //public enum FieldName : int
         //{
         //    Label,
@@ -416,14 +422,21 @@ namespace LightGBMNet.Train
         /// get feature names of Dataset
         /// </summary>
         /// <param name="handle">handle</param>
-        /// <param name="featureNames">feature names, should pre-allocate memory</param>
+        /// <param name="len">Number of ``char*`` pointers stored at ``out_strs``. If smaller than the max size, only this many strings are copied</param>
         /// <param name="numFeatureNames">number of feature names</param>
+        /// <param name="buffer_len"> Size of pre-allocated strings. Content is copied up to ``buffer_len - 1`` and null-terminated</param>
+        /// <param name="out_buffer_len"> String sizes required to do the full string copies</param>
+        /// <param name="featureNames">feature names, should pre-allocate memory</param>
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_DatasetGetFeatureNames", CallingConvention = CallingConvention.StdCall)]
         public static extern int DatasetGetFeatureNames(
             IntPtr handle,
-            IntPtr[] featureNames,
-            ref int numFeatureNames);
+            int len,
+            ref int numFeatureNames,
+            long buffer_len,
+            ref long out_buffer_len,
+            IntPtr[] featureNames
+            );
 
         /// <summary>
         /// free space for dataset
@@ -757,6 +770,7 @@ namespace LightGBMNet.Train
         /// <param name="dataFilename">filename of data file</param>
         /// <param name="dataHasHeader">data file has header or not</param>
         /// <param name="predictType">predict_type</param>
+        /// <param name="startIteration">Start index of the iteration to predict</param>
         /// <param name="numIteration">number of iteration for prediction, &lt;= 0 means no limit</param>
         /// <param name="parameter">Other parameters for the parameters, e.g. early stopping for prediction.</param>
         /// <param name="fileName">filename of result file</param>
@@ -767,6 +781,7 @@ namespace LightGBMNet.Train
             string dataFilename,
             int dataHasHeader,//really boolean
             CApiPredictType predictType,
+            int startIteration,
             int numIteration,
             [MarshalAs(UnmanagedType.LPStr)] string parameter,
             ref string fileName);
@@ -777,6 +792,7 @@ namespace LightGBMNet.Train
         /// <param name="handle">handle</param>
         /// <param name="numRow">number of rows</param>
         /// <param name="predictType">predict type</param>
+        /// <param name="startIteration">Start index of the iteration to predict</param>
         /// <param name="numIteration">number of iteration for prediction, &lt;= 0 means no limit</param>
         /// <param name="outLen">length of prediction</param>
         /// <returns>0 when succeed, -1 when failure happens</returns>
@@ -785,6 +801,7 @@ namespace LightGBMNet.Train
             IntPtr handle,
             int numRow,
             CApiPredictType predictType,
+            int startIteration,
             int numIteration,
             ref long outLen);
 
@@ -804,6 +821,7 @@ namespace LightGBMNet.Train
         /// <param name="nElem">number of nonzero elements in the matrix</param>
         /// <param name="numCol">number of columns; when it's set to 0, then guess from data</param>
         /// <param name="predictType">predict type</param>
+        /// <param name="startIteration">Start index of the iteration to predict</param>
         /// <param name="numIteration">number of iteration for prediction, &lt;= 0 means no limit</param>
         /// <param name="parameter">Other parameters for the parameters, e.g. early stopping for prediction.</param>
         /// <param name="outLen">len of output result</param>
@@ -821,6 +839,7 @@ namespace LightGBMNet.Train
             long nElem,
             long numCol,
             CApiPredictType predictType,
+            int startIteration,
             int numIteration,
             [MarshalAs(UnmanagedType.LPStr)] string parameter,
             ref long outLen,
@@ -845,7 +864,7 @@ namespace LightGBMNet.Train
                 return BoosterPredictForCsr(handle,
                             indPtr2, CApiDType.Int32,
                             indices2, data2, CApiDType.Float32,
-                            nIndPtr, nElem, numCol, predictType, numIteration, parameter, ref outLen, outResult);
+                            nIndPtr, nElem, numCol, predictType, 0, numIteration, parameter, ref outLen, outResult);
         }
 
         /// <summary>
@@ -864,6 +883,7 @@ namespace LightGBMNet.Train
         /// <param name="nElem">number of nonzero elements in the matrix</param>
         /// <param name="numRow"> number of rows</param>
         /// <param name="predictType">predict type</param>
+        /// <param name="startIteration">Start index of the iteration to predict</param>
         /// <param name="numIteration">number of iteration for prediction, &lt;= 0 means no limit</param>
         /// <param name="parameter">Other parameters for the parameters, e.g. early stopping for prediction.</param>
         /// <param name="outLen">len of output result</param>
@@ -881,6 +901,7 @@ namespace LightGBMNet.Train
             long nElem,
             long numRow,
             CApiPredictType predictType,
+            int startIteration,
             int numIteration,
             [MarshalAs(UnmanagedType.LPStr)] string parameter,
             ref long outLen,
@@ -905,7 +926,7 @@ namespace LightGBMNet.Train
                 return BoosterPredictForCsc(handle,
                         colPtr2, CApiDType.Int32,
                         indices2, data2, CApiDType.Float32,
-                        nColPtr, nElem, numRow, predictType, numIteration, parameter, ref outLen, outResult);
+                        nColPtr, nElem, numRow, predictType, 0, numIteration, parameter, ref outLen, outResult);
         }
 
         /// <summary>
@@ -921,6 +942,7 @@ namespace LightGBMNet.Train
         /// <param name="nCol">number columns</param>
         /// <param name="isRowMajor">1 for row major, 0 for column major</param>
         /// <param name="predictType">predict_type</param>
+        /// <param name="startIteration">Start index of the iteration to predict
         /// <param name="numIteration">number of iteration for prediction, &lt;= 0 means no limit</param>
         /// <param name="parameter">Other parameters for the parameters, e.g. early stopping for prediction.</param>
         /// <param name="outLen"> len of output result</param>
@@ -935,6 +957,7 @@ namespace LightGBMNet.Train
             int nCol,
             int isRowMajor,
             CApiPredictType predictType,
+            int startIteration,
             int numIteration,
             [MarshalAs(UnmanagedType.LPStr)] string parameter,
             ref long outLen,
@@ -948,6 +971,7 @@ namespace LightGBMNet.Train
             int nRow,
             int nCol,
             CApiPredictType predictType,
+            int startIteration,
             int numIteration,
             [MarshalAs(UnmanagedType.LPStr)] string parameter,
             ref long outLen,
@@ -971,7 +995,7 @@ namespace LightGBMNet.Train
                     dataPtr, CApiDType.Float32,
                     nRow, nCol,
                     (isRowMajor ? 1 : 0),
-                    predictType, numIteration, parameter, ref outLen, outResult);
+                    predictType, 0, numIteration, parameter, ref outLen, outResult);
         }
 
         public static unsafe int BoosterPredictForMats(
@@ -1000,7 +1024,7 @@ namespace LightGBMNet.Train
                         handle,
                         dataPtr, CApiDType.Float32,
                         data.Length, nCol,
-                        predictType, numIteration, parameter, ref outLen,
+                        predictType, 0, numIteration, parameter, ref outLen,
                         outResult);
             }
             finally
@@ -1019,6 +1043,7 @@ namespace LightGBMNet.Train
         /// <param name="handle">handle</param>
         /// <param name="startIteration">start iteration</param>
         /// <param name="numIteration">num_iteration, &lt;= 0 means save all</param>
+        /// <param name="featureImportanceType">Type of feature importance, can be ``C_API_FEATURE_IMPORTANCE_SPLIT`` or ``C_API_FEATURE_IMPORTANCE_GAIN``
         /// <param name="fileName">file name</param>
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_BoosterSaveModel", CallingConvention = CallingConvention.StdCall)]
@@ -1026,6 +1051,7 @@ namespace LightGBMNet.Train
             IntPtr handle,
             int startIteration,
             int numIteration,
+            CApiFeatureImportanceType featureImportanceType,
             [MarshalAs(UnmanagedType.LPStr)] string fileName);
 
         /// <summary>
@@ -1033,6 +1059,7 @@ namespace LightGBMNet.Train
         /// </summary>
         /// <param name="handle">handle</param>
         /// <param name="numIteration">&lt;= 0 means save all</param>
+        /// <param name="featureImportanceType">Type of feature importance, can be ``C_API_FEATURE_IMPORTANCE_SPLIT`` or ``C_API_FEATURE_IMPORTANCE_GAIN``
         /// <param name="bufferLen">buffer length, if buffer_len &lt; out_len, re-allocate buffer</param>
         /// <param name="outLen">actual output length</param>
         /// <param name="outStr">string of model, need to pre-allocate memory before call this</param>
@@ -1041,6 +1068,7 @@ namespace LightGBMNet.Train
         public static extern unsafe int BoosterSaveModelToString(IntPtr handle,
             int startIteration,
             int numIteration,
+            CApiFeatureImportanceType featureImportanceType,
             long bufferLen,
             ref long outLen,
             byte* outStr);//remember a .Net char is unicode...
@@ -1051,6 +1079,7 @@ namespace LightGBMNet.Train
         /// <param name="handle">handle</param>
         /// <param name="startIteration">&lt;= 0 means save all</param>
         /// <param name="numIteration">&lt;= 0 means save all</param>
+        /// <param name="featureImportanceType">Type of feature importance, can be ``C_API_FEATURE_IMPORTANCE_SPLIT`` or ``C_API_FEATURE_IMPORTANCE_GAIN``
         /// <param name="bufferLen">buffer length, if buffer_len &lt; out_len, re-allocate buffer</param>
         /// <param name="outLen">actual output length</param>
         /// <param name="outStr">json format string of model, need to pre-allocate memory before call this</param>
@@ -1060,6 +1089,7 @@ namespace LightGBMNet.Train
             IntPtr handle,
             int startIteration,
             int numIteration,
+            CApiFeatureImportanceType featureImportanceType,
             long bufferLen,
             ref long outLen,
             byte* outStr);
@@ -1099,7 +1129,7 @@ namespace LightGBMNet.Train
         /// </summary>
         /// <param name="handle">handle</param>
         /// <param name="numIteration">lte; 0 means use all</param>
-        /// <param name="importanceType">0 for split, 1 for gain</param>
+        /// <param name="importanceType">``C_API_FEATURE_IMPORTANCE_SPLIT`` for split, ``C_API_FEATURE_IMPORTANCE_GAIN`` for gain</param>
         /// <param name="outResults">output value array</param>
         /// <returns>0 when succeed, -1 when failure happens</returns>
         [DllImport(DllName, EntryPoint = "LGBM_BoosterFeatureImportance", CallingConvention = CallingConvention.StdCall)]
@@ -1135,27 +1165,5 @@ namespace LightGBMNet.Train
         public static extern int NetworkInitWithFunctions(int numMachines, int rank, ReduceScatterFunction reduceScatterFuncPtr, AllGatherFunction allgatherFuncPtr);
 
         #endregion
-
-        // These are suspect as not listed in the source code.
-
-        //    [DllImport(DllName, EntryPoint = "LGBM_AllocateArray", CallingConvention = CallingConvention.StdCall)]
-        //    public static extern int AllocateArray(
-        //        long len,
-        //        int type,
-        //        ref IntPtr ret);
-
-        //    [DllImport(DllName, EntryPoint = "LGBM_CopyToArray", CallingConvention = CallingConvention.StdCall)]
-        //    public static extern int CopyToArray(
-        //        IntPtr arr,
-        //        int type,
-        //        long startIdx,
-        //        IntPtr src,
-        //        long len);
-
-        //    [DllImport(DllName, EntryPoint = "LGBM_FreeArray", CallingConvention = CallingConvention.StdCall)]
-        //    public static extern int FreeArray(
-        //        IntPtr ret,
-        //        int type);
-        //}
     }
 }
