@@ -37,10 +37,10 @@ namespace LightGBMNet.Tree
             set => SubPredictor.MaxThreads = value;
         }
 
-        public void GetOutput(ref VBuffer<float> features, ref double prob)
+        public void GetOutput(ref VBuffer<float> features, ref double prob, int startIteration, int numIterations)
         {
             double score = 0;
-            SubPredictor.GetOutput(ref features, ref score);
+            SubPredictor.GetOutput(ref features, ref score, startIteration, numIterations);
             prob = Calibrator.Transform(score);
         }
 

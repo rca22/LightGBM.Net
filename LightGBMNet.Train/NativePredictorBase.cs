@@ -18,19 +18,26 @@ namespace LightGBMNet.Train
         {
             Booster = booster;
             MaxNumTrees = booster.BestIteration < 0 ? booster.CurrentIteration : booster.BestIteration;
+            MaxThreads = 0;
         }
         public int NumInputs => Booster.NumFeatures;
 
-        // TODO: not used
         public int MaxThreads { get; set; }
 
-        public void GetOutput(ref VBuffer<float> features, ref TOutput prob)
+        public void GetOutput(ref VBuffer<float> features, ref TOutput prob, int startIteration, int numIterations)
         {
-            var output = Booster.PredictForMat(Booster.PredictType.Normal, features.Values, MaxNumTrees);
+            var output = Booster.PredictForMat(Booster.PredictType.Normal, features.Values, startIteration, (numIterations == -1) ? MaxNumTrees : numIterations);
             prob = ConvertOutput(output);
         }
 
-        public abstract TOutput[] GetOutputs(float[][] rows);
+        /// <summary>
+        /// Evaluate predictor
+        /// </summary>
+        /// <param name="rows"></param>
+        /// <param name="startIteration"></param>
+        /// <param name="numIterations">Set to -1 to use all trees</param>
+        /// <returns></returns>
+        public abstract TOutput[] GetOutputs(float[][] rows, int startIteration, int numIterations);
 
         public FeatureToGainMap GetFeatureWeights(bool normalise = false, bool splits = false)
         {

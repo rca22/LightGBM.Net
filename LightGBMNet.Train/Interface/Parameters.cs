@@ -1641,6 +1641,21 @@ namespace LightGBMNet.Train
             }
         }
 
+        private double _linear_lambda = 0.0;
+        /// <summary>
+        /// Linear tree regularization, corresponds to the parameter lambda in Eq. 3 of Gradient Boosting with Piece-Wise Linear Regression Trees.
+        /// </summary>
+        public double LinearLambda
+        {
+            get { return _linear_lambda; }
+            set
+            {
+                if (value < 0.0)
+                    throw new ArgumentOutOfRangeException("LinearLambda");
+                _linear_lambda = value;
+            }
+        }
+
         // TODO: add interaction_constraints
 
         #endregion
@@ -2093,6 +2108,19 @@ namespace LightGBMNet.Train
         /// Setting this to ``true`` should ensure the stable results when using the same data and the same parameters (and different ``num_threads``)
         /// </summary>
         public bool Deterministic { get; set; } = false;
+
+        /// <summary>
+        /// Fit piecewise linear gradient boosting tree
+        ///  * Tree splits are chosen in the usual way, but the model at each leaf is linear instead of constant
+        ///  * The linear model at each leaf includes all the numerical features in that leaf’s branch
+        ///  * Categorical features are used for splits as normal but are not used in the linear models
+        ///  * Missing values should not be encoded as 0. Use np.nan for Python, NA for the CLI, and NA, NA_real_, or NA_integer_ for R
+        ///  * It is recommended to rescale data before training so that features have similar mean and standard deviation
+        ///  * Note: only works with CPU and serial tree learner
+        ///  * Note: regression_l1 objective is not supported with linear tree boosting
+        ///  * Note: setting linear_tree = true significantly increases the memory use of LightGBM
+        /// </summary>
+        public bool LinearTree { get; set; } = false;
 
         #region GPU
         /// <summary>

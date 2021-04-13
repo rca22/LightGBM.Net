@@ -36,21 +36,21 @@ namespace LightGBMNet.Tree
         private (int, int) [] _groups = null;
         private double[] _groupVals = null;
 
-        private void SetGroups()
+        private void SetGroups(int numTrees)
         {
             // _groups calculation already cached?
-            if (_groupMaxThreads == MaxThreads && _groupNumTrees == NumTrees)
+            if (_groupMaxThreads == MaxThreads && _groupNumTrees == numTrees)
                 return;
 
-            if (_maxThreads == 1)
+            if (_maxThreads == 1 || numTrees == 0)
             {
                 _groups = null;
                 _groupVals = null;
             }
             else
             {
-                var numGroups = Math.Min(NumTrees, MaxThreads);
-                var per = Math.DivRem(NumTrees, numGroups, out var stub);
+                var numGroups = Math.Min(numTrees, MaxThreads);
+                var per = Math.DivRem(numTrees, numGroups, out var stub);
                 _groups = new (int, int)[numGroups];
                 _groupVals = new double[numGroups];
                 var idx0 = 0;
@@ -61,10 +61,10 @@ namespace LightGBMNet.Tree
                     _groups[i] = (idx0, idx1);
                     idx0 = idx1;
                 }
-                Debug.Assert(idx0 == NumTrees);
+                Debug.Assert(idx0 == numTrees);
             }
             _groupMaxThreads = MaxThreads;
-            _groupNumTrees = NumTrees;
+            _groupNumTrees = numTrees;
         }
 
         public Ensemble()
@@ -72,13 +72,13 @@ namespace LightGBMNet.Tree
             _trees = new List<RegressionTree>();
         }
 
-        public Ensemble(BinaryReader reader)
+        public Ensemble(BinaryReader reader, bool legacyVersion)
         {
             int numTrees = reader.ReadInt32();
             if(!(numTrees >= 0)) throw new FormatException();
             _trees = new List<RegressionTree>(numTrees);
             for (int t = 0; t < numTrees; ++t)
-                AddTree(RegressionTree.Load(reader));
+                AddTree(RegressionTree.Load(reader, legacyVersion));
             MaxThreads = reader.ReadInt32();
         }
 
@@ -96,13 +96,14 @@ namespace LightGBMNet.Tree
         public void RemoveAfter(int index) => _trees.RemoveRange(index, NumTrees - index);
         public RegressionTree GetTreeAt(int index) => _trees[index];
 
-        public double GetOutput(ref VBuffer<float> feat)
+        public double GetOutput(ref VBuffer<float> feat, int startIteration, int numIterations)
         {
-            SetGroups();
+            int numTrees = (numIterations == -1) ? NumTrees : numIterations;
+            SetGroups(numTrees);
 
             double result = 0.0;
 
-            if (_maxThreads > 1)
+            if (_maxThreads > 1 && numTrees > 0)
             {
                 var featcopy = feat;
                 Parallel.For(0, _groups.Length, i =>
@@ -110,7 +111,7 @@ namespace LightGBMNet.Tree
                     double output = 0.0;
                     (int lo, int hi) = _groups[i];
                     for (int h = lo; h < hi; h++)
-                        output += _trees[h].GetOutput(ref featcopy);
+                        output += _trees[startIteration+h].GetOutput(ref featcopy);
                     _groupVals[i] = output;
                 }
                 );
@@ -118,8 +119,8 @@ namespace LightGBMNet.Tree
             }
             else
             {
-                for (int h = 0; h < NumTrees; h++)
-                    result += _trees[h].GetOutput(ref feat);
+                for (int h = 0; h < numTrees; h++)
+                    result += _trees[startIteration+h].GetOutput(ref feat);
             }
 
             return result;

@@ -320,22 +320,22 @@ namespace LightGBMNet.Train
                 return Marshal.PtrToStringAnsi((IntPtr)ptr);
         }
 
-        private static double[] Str2DoubleArray(string str, char delimiter)
+        private static double[] Str2DoubleArray(string str, char [] delimiters)
         {
-            return str.Split(delimiter)
+            return str.Split(delimiters, StringSplitOptions.RemoveEmptyEntries)
                       .Select(s => double.TryParse(s.Replace("inf", "∞"), out double rslt) ? rslt : 
                                     (s.Contains("nan") ? double.NaN : throw new Exception($"Cannot parse as double: {s}")))
                       .ToArray();
         }
 
-        private static int[] Str2IntArray(string str, char delimiter)
+        private static int[] Str2IntArray(string str, char [] delimiters)
         {
-            return str.Split(delimiter).Select(int.Parse).ToArray();
+            return str.Split(delimiters, StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToArray();
         }
 
-        private static uint[] Str2UIntArray(string str, char delimiter)
+        private static uint[] Str2UIntArray(string str, char [] delimiters)
         {
-            return str.Split(delimiter).Select(uint.Parse).ToArray();
+            return str.Split(delimiters, StringSplitOptions.RemoveEmptyEntries).Select(uint.Parse).ToArray();
         }
 
         private static bool GetIsDefaultLeft(uint decisionType)
@@ -519,7 +519,7 @@ namespace LightGBMNet.Train
             PInvokeException.Check(PInvoke.BoosterShuffleModels(Handle), nameof(PInvoke.BoosterShuffleModels));
         }
 
-        public unsafe double [] PredictForMat(PredictType predictType, float [] data, int numIteration = -1)
+        public unsafe double [] PredictForMat(PredictType predictType, float [] data, int startIteration, int numIteration)
         {
             if (predictType == PredictType.LeafIndex)
                     throw new NotImplementedException("TODO: PredictType.LeafIndex");
@@ -533,6 +533,7 @@ namespace LightGBMNet.Train
                                                                    , /*nCol*/data.Length
                                                                    , /*isRowMajor*/true
                                                                    , (PInvoke.CApiPredictType)predictType
+                                                                   , startIteration
                                                                    , (numIteration == -1) ? BestIteration : numIteration
                                                                    , ""
                                                                    , ref outLen
@@ -541,7 +542,7 @@ namespace LightGBMNet.Train
             return outResult;
         }
 
-        public unsafe double[] PredictForMats(PredictType predictType, float[][] data, int numIteration = -1)
+        public unsafe double[] PredictForMats(PredictType predictType, float[][] data, int startIteration, int numIteration, int numThreads)
         {
             if (predictType == PredictType.LeafIndex)
                 throw new NotImplementedException("TODO: PredictType.LeafIndex");
@@ -556,8 +557,9 @@ namespace LightGBMNet.Train
                                                                         , data
                                                                         , /*nCol*/ data[0].Length
                                                                         , (PInvoke.CApiPredictType)predictType
+                                                                        , startIteration
                                                                         , (numIteration == -1) ? BestIteration : numIteration
-                                                                        , ""
+                                                                        , (numThreads > 0 ? $"num_threads={numThreads}" : "")
                                                                         , outResult.Length
                                                                         , ptr
                                                                         ), nameof(PInvoke.BoosterPredictForMats));
@@ -565,7 +567,7 @@ namespace LightGBMNet.Train
             return outResult;
         }
 
-        public unsafe double[,] PredictForMatsMulti(PredictType predictType, float[][] data, int numIteration = -1)
+        public unsafe double[,] PredictForMatsMulti(PredictType predictType, float[][] data, int startIteration, int numIteration)
         {
             if (predictType == PredictType.LeafIndex)
                 throw new NotImplementedException("TODO: PredictType.LeafIndex");
@@ -577,10 +579,11 @@ namespace LightGBMNet.Train
                 var hdl = GCHandle.Alloc(outResult, GCHandleType.Pinned);
                 try
                 {
-                    PInvokeException.Check(PInvoke.BoosterPredictForMats(Handle
+                    PInvokeException.Check(PInvoke.BoosterPredictForMats( Handle
                                                                         , data
                                                                         , /*nCol*/ data[0].Length
                                                                         , (PInvoke.CApiPredictType)predictType
+                                                                        , startIteration
                                                                         , (numIteration == -1) ? BestIteration : numIteration
                                                                         , ""
                                                                         , outLen
@@ -649,6 +652,7 @@ namespace LightGBMNet.Train
             string modelString = GetModelString();
             string[] lines = modelString.Split('\n');
             var prms = new Dictionary<string, string>();
+            var delimiters = new char[] { ' ' };
             int i = 0;
             for (; i < lines.Length;)
             {
@@ -665,73 +669,87 @@ namespace LightGBMNet.Train
                     }
                     int numLeaves = int.Parse(kvPairs["num_leaves"]);
                     int numCat = int.Parse(kvPairs["num_cat"]);
-                    if (numLeaves > 1)
+                    var leftChild = Str2IntArray(kvPairs["left_child"], delimiters);
+                    var rightChild = Str2IntArray(kvPairs["right_child"], delimiters);
+                    var splitFeature = Str2IntArray(kvPairs["split_feature"], delimiters);
+                    var threshold = Str2DoubleArray(kvPairs["threshold"], delimiters);
+                    var splitGain = Str2DoubleArray(kvPairs["split_gain"], delimiters);
+                    var leafOutput = Str2DoubleArray(kvPairs["leaf_value"], delimiters);
+                    var decisionType = Str2UIntArray(kvPairs["decision_type"], delimiters);
+
+                    for (var j = 0; j < threshold.Length; j++)
                     {
-                        var leftChild = Str2IntArray(kvPairs["left_child"], ' ');
-                        var rightChild = Str2IntArray(kvPairs["right_child"], ' ');
-                        var splitFeature = Str2IntArray(kvPairs["split_feature"], ' ');
-                        var threshold = Str2DoubleArray(kvPairs["threshold"], ' ');
-                        var splitGain = Str2DoubleArray(kvPairs["split_gain"], ' ');
-                        var leafOutput = Str2DoubleArray(kvPairs["leaf_value"], ' ');
-                        var decisionType = Str2UIntArray(kvPairs["decision_type"], ' ');
+                        // See 'AvoidInf' in lightgbm source
+                        var t = threshold[j];
+                        if (t == 1e300)
+                            threshold[j] = double.PositiveInfinity;
+                        else if (t == -1e300)
+                            threshold[j] = double.NegativeInfinity;
+                    }
 
-                        for (var j = 0; j < threshold.Length; j++)
+                    var defaultValue = GetDefaultValue(threshold, decisionType);
+
+                    var categoricalSplit = new bool[numLeaves - 1];
+                    var catBoundaries = Array.Empty<int>();
+                    var catThresholds = Array.Empty<uint>();
+                    if (numCat > 0)
+                    {
+                        catBoundaries = Str2IntArray(kvPairs["cat_boundaries"], delimiters);
+                        catThresholds = Str2UIntArray(kvPairs["cat_threshold"], delimiters);
+                        for (int node = 0; node < numLeaves - 1; ++node)
                         {
-                            // See 'AvoidInf' in lightgbm source
-                            var t = threshold[j];
-                            if (t == 1e300)
-                                threshold[j] = double.PositiveInfinity;
-                            else if (t == -1e300)
-                                threshold[j] = double.NegativeInfinity;
+                            categoricalSplit[node] = GetIsCategoricalSplit(decisionType[node]);
                         }
+                    }
 
-                        var defaultValue = GetDefaultValue(threshold, decisionType);
+                    double[] leafConst = null;
+                    int[][] leafFeaturesUnpacked = null;
+                    double[][] leafCoeffUnpacked = null;
 
-                        var categoricalSplit = new bool[numLeaves - 1];
-                        var catBoundaries = Array.Empty<int>();
-                        var catThresholds = Array.Empty<uint>();
-                        if (numCat > 0)
+                    var isLinear = Int32.Parse(kvPairs["is_linear"]) > 0;
+                    if (isLinear)
+                    {
+                        leafConst = Str2DoubleArray(kvPairs["leaf_const"], delimiters);
+                        var numFeatures = Str2IntArray(kvPairs["num_features"], delimiters);
+                        var leafFeatures = Str2IntArray(kvPairs["leaf_features"], delimiters);
+                        var leafCoeff = Str2DoubleArray(kvPairs["leaf_coeff"], delimiters);
+
+                        leafFeaturesUnpacked = new int[numFeatures.Length][];
+                        leafCoeffUnpacked = new double[numFeatures.Length][];
+                        var idx = 0;
+                        for (var j=0; j < numFeatures.Length; j++)
                         {
-                            catBoundaries = Str2IntArray(kvPairs["cat_boundaries"], ' ');
-                            catThresholds = Str2UIntArray(kvPairs["cat_threshold"], ' ');
-                            for (int node = 0; node < numLeaves - 1; ++node)
+                            var len = numFeatures[j];
+                            leafFeaturesUnpacked[j] = new int[len];
+                            leafCoeffUnpacked[j] = new double[len];
+                            for (var k = 0; k < len; k++)
                             {
-                                categoricalSplit[node] = GetIsCategoricalSplit(decisionType[node]);
+                                leafFeaturesUnpacked[j][k] = leafFeatures[idx];
+                                leafCoeffUnpacked[j][k] = leafCoeff[idx];
+                                idx++;
                             }
                         }
+                        if (idx != leafFeatures.Length)
+                            throw new Exception("Failed to parse leaf features");
+                    }
 
-                        var tree = Tree.RegressionTree.Create(
-                                        numLeaves,
-                                        splitFeature,
-                                        splitGain,
-                                        threshold,
-                                        defaultValue,
-                                        leftChild,
-                                        rightChild,
-                                        leafOutput,
-                                        catBoundaries,
-                                        catThresholds,
-                                        categoricalSplit);
-                        res.AddTree(tree);
-                    }
-                    else
-                    {
-                        // always need to add tree, otherwise multiclass will be wrong
-                        var leafOutput = Str2DoubleArray(kvPairs["leaf_value"], ' ');
-                        var tree = Tree.RegressionTree.Create(
-                                    2,
-                                    new int[] { 0 },
-                                    new double[] { 0 },
-                                    new double[] { 0 },
-                                    new double[] { 0 },
-                                    new int[] { -1 },
-                                    new int[] { -2 },
-                                    new double[] { leafOutput[0], leafOutput[0] },
-                                    new int[] { },
-                                    new uint[] { },
-                                    new bool[] { false });
-                        res.AddTree(tree);
-                    }
+                    var tree = Tree.RegressionTree.Create(
+                                    numLeaves,
+                                    splitFeature,
+                                    splitGain,
+                                    threshold,
+                                    defaultValue,
+                                    leftChild,
+                                    rightChild,
+                                    leafOutput,
+                                    catBoundaries,
+                                    catThresholds,
+                                    categoricalSplit,
+                                    isLinear,
+                                    leafConst,
+                                    leafFeaturesUnpacked,
+                                    leafCoeffUnpacked);
+                    res.AddTree(tree);
                 }
                 else
                 {
@@ -757,9 +775,6 @@ namespace LightGBMNet.Train
             // irrelevant parameter for managed trees which always use NaN for missing value
             prms.Remove("zero_as_missing");
             prms.Remove("saved_feature_importance_type");
-            // TODO: add linear trees
-            prms.Remove("linear_tree");
-            prms.Remove("linear_lambda");
             if (prms.Count > 0)
             {
                 Console.WriteLine($"WARNING: Unknown new parameters {String.Join(",", prms.Keys)}");

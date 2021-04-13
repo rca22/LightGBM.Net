@@ -377,10 +377,10 @@ namespace LightGBMNet.Train
         /// <param name="predictType"></param>
         /// <param name="row"></param>
         /// <returns></returns>
-        public double [] Evaluate(Booster.PredictType predictType, float[] row, int numIteration = -1)
+        public double [] Evaluate(Booster.PredictType predictType, float[] row, int startIteration, int numIteration)
         {
             if (Booster == null) throw new Exception("Model has not been trained");
-            var rslt = Booster.PredictForMat(predictType, row, numIteration);
+            var rslt = Booster.PredictForMat(predictType, row, startIteration, numIteration);
             return rslt;
         }
 
@@ -390,10 +390,10 @@ namespace LightGBMNet.Train
         /// <param name="predictType"></param>
         /// <param name="row"></param>
         /// <returns></returns>
-        public double[,] Evaluate(Booster.PredictType predictType, float[][] rows, int numIteration = -1)
+        public double[,] Evaluate(Booster.PredictType predictType, float[][] rows, int startIteration, int numIterations)
         {
             if (Booster == null) throw new Exception("Model has not been trained");
-            var rslt = Booster.PredictForMatsMulti(predictType, rows, numIteration);
+            var rslt = Booster.PredictForMatsMulti(predictType, rows, startIteration, numIterations);
             return rslt;
         }
 

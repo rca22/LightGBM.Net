@@ -13,6 +13,7 @@ namespace LightGBMNet.Tree
 {
     public class RegressionTree
     {
+        [DebuggerDisplay("SplitFeature: {SplitFeature} Threshold: {RawThreshold} LteChild: {LteChild} GtChild: {GtChild} DefaultValue: {DefaultValueForMissing} Categorical: {CategoricalSplit}")]
         public class Node
         {
             public int LteChild { get; set; }
@@ -63,6 +64,12 @@ namespace LightGBMNet.Tree
 
         public double[] LeafValues { get; }
 
+        // Linear trees only
+        public bool IsLinear { get;  }
+        public double[] LeafConst { get; }
+        public int[][] LeafFeatures { get; }
+        public double[][] LeafCoeff { get; }
+
         public int NumLeaves => LeafValues.Length;
 
         /// <summary>
@@ -81,40 +88,48 @@ namespace LightGBMNet.Tree
         /// </summary>
         public static RegressionTree Create(int numLeaves, int[] splitFeatures, double[] splitGain,
             double[] rawThresholds, double[] defaultValueForMissing, int[] lteChild, int[] gtChild, double[] leafValues,
-            int[] categoricalBoundaries, uint[] categoricalThresholds, bool[] categoricalSplit)
+            int[] categoricalBoundaries, uint[] categoricalThresholds, bool[] categoricalSplit, bool isLinear, double [] leafConst, int[][] leafFeatures, double [][] leafCoeff)
         {
-            if (numLeaves <= 1)
+            var numCat = categoricalSplit.Where(x => x).Count();
+            CheckParam(numLeaves - 1 == Size(splitFeatures), nameof(splitFeatures), "Size error, should equal to numLeaves - 1.");
+            CheckParam(numLeaves - 1 == Size(splitGain), nameof(splitGain), "Size error, should equal to numLeaves - 1.");
+            CheckParam(numLeaves - 1 == Size(rawThresholds), nameof(rawThresholds), "Size error, should equal to numLeaves - 1.");
+            CheckParam(numLeaves - 1 == Size(lteChild), nameof(lteChild), "Size error, should equal to numLeaves - 1.");
+            CheckParam(numLeaves - 1 == Size(gtChild), nameof(gtChild), "Size error, should equal to numLeaves - 1.");
+            CheckParam(numLeaves - 1 == Size(defaultValueForMissing), nameof(defaultValueForMissing), "Size error, should equal to numLeaves - 1.");
+            CheckParam(numLeaves == Size(leafValues), nameof(leafValues), "Size error, should equal to numLeaves.");
+            if (isLinear)
             {
-                // Create a dummy tree
-                RegressionTree tree = new RegressionTree(2);
-                tree.SetOutput(0, 0.0);
-                tree.SetOutput(1, 0.0);
-                return tree;
+                CheckParam(null != leafConst, nameof(leafConst), "Should not be null if isLinear=true.");
+                CheckParam(null != leafFeatures, nameof(leafFeatures), "Should not be null if isLinear=true.");
+                CheckParam(null != leafCoeff, nameof(leafCoeff), "Should not be null if isLinear=true.");
+                CheckParam(numLeaves == Size(leafConst), nameof(leafConst), "Size error, should equal to numLeaves.");
+                CheckParam(numLeaves == Size(leafFeatures), nameof(leafFeatures), "Size error, should equal to numLeaves.");
+                CheckParam(numLeaves == Size(leafCoeff), nameof(leafCoeff), "Size error, should equal to numLeaves.");
+                for (var i = 0; i < numLeaves; i++)
+                {
+                    CheckParam(null != leafFeatures[i], nameof(leafFeatures), $"Should not contain null array at index {i} if isLinear=true.");
+                    CheckParam(null != leafCoeff[i], nameof(leafCoeff), $"Should not contain null array at index {i} if isLinear=true.");
+                    CheckParam(leafFeatures[i].Length == leafCoeff[i].Length, nameof(leafCoeff), $"Arrays leafFeatures and leafCoeff should have same length at index {i} if isLinear=true.");
+                }
             }
             else
             {
-                var numCat = categoricalSplit.Where(x => x).Count();
-                CheckParam(numLeaves - 1 == Size(splitFeatures), nameof(splitFeatures), "Size error, should equal to numLeaves - 1.");
-                CheckParam(numLeaves - 1 == Size(splitGain), nameof(splitGain), "Size error, should equal to numLeaves - 1.");
-                CheckParam(numLeaves - 1 == Size(rawThresholds), nameof(rawThresholds), "Size error, should equal to numLeaves - 1.");
-                CheckParam(numLeaves - 1 == Size(lteChild), nameof(lteChild), "Size error, should equal to numLeaves - 1.");
-                CheckParam(numLeaves - 1 == Size(gtChild), nameof(gtChild), "Size error, should equal to numLeaves - 1.");
-                CheckParam(numLeaves - 1 == Size(defaultValueForMissing), nameof(defaultValueForMissing), "Size error, should equal to numLeaves - 1.");
-                CheckParam(numLeaves == Size(leafValues), nameof(leafValues), "Size error, should equal to numLeaves.");
-              // TODO: size depends on range of categorical variables, below only true for small range
-              //CheckParam((numCat > 0 ? numCat + 1 : 0) == Size(categoricalBoundaries), nameof(categoricalBoundaries), "Size error, should equal to numCat + 1.");
-              //CheckParam(numCat == Size(categoricalThresholds), nameof(categoricalThresholds), "Size error, should equal to numCat.");
-                CheckParam(numLeaves - 1 == Size(categoricalSplit), nameof(categoricalSplit), "Size error, should equal to numLeaves - 1.");
-                return new RegressionTree(splitFeatures, splitGain, /*null,*/ rawThresholds, defaultValueForMissing, lteChild, gtChild, leafValues, categoricalBoundaries, categoricalThresholds, categoricalSplit);
+                CheckParam(null == leafConst, nameof(leafConst), "Should be null if isLinear=false.");
+                CheckParam(null == leafFeatures, nameof(leafFeatures), "Should be null if isLinear=false.");
+                CheckParam(null == leafCoeff, nameof(leafCoeff), "Should be null if isLinear=false.");
             }
+            // TODO: size depends on range of categorical variables, below only true for small range
+            //CheckParam((numCat > 0 ? numCat + 1 : 0) == Size(categoricalBoundaries), nameof(categoricalBoundaries), "Size error, should equal to numCat + 1.");
+            //CheckParam(numCat == Size(categoricalThresholds), nameof(categoricalThresholds), "Size error, should equal to numCat.");
+            CheckParam(numLeaves - 1 == Size(categoricalSplit), nameof(categoricalSplit), "Size error, should equal to numLeaves - 1.");
+            return new RegressionTree(splitFeatures, splitGain, /*null,*/ rawThresholds, defaultValueForMissing, lteChild, gtChild, leafValues, categoricalBoundaries, categoricalThresholds, categoricalSplit, isLinear, leafConst, leafFeatures, leafCoeff);
         }
 
         internal RegressionTree(int[] splitFeatures, double[] splitGains,
             double[] rawThresholds, double[] defaultValueForMissing, int[] lteChild, int[] gtChild, double[] leafValues,
-            int[] categoricalBoundaries, uint[] categoricalThresholds, bool[] categoricalSplit)
+            int[] categoricalBoundaries, uint[] categoricalThresholds, bool[] categoricalSplit, bool isLinear, double[] leafConst, int[][] leafFeatures, double[][] leafCoeff)
         {
-            CheckParam(Size(splitFeatures) > 0, nameof(splitFeatures), "Number of split features must be positive");
-
             Nodes = new Node[Size(splitFeatures)];
             for (int i = 0; i < Nodes.Length; i++)
             {
@@ -133,6 +148,11 @@ namespace LightGBMNet.Tree
             LeafValues = leafValues;
             CategoricalBoundaries = categoricalBoundaries;
             CategoricalThresholds = categoricalThresholds;
+            
+            IsLinear = isLinear;
+            LeafConst = leafConst;
+            LeafFeatures = leafFeatures;
+            LeafCoeff = leafCoeff;
 
             CheckValid(Check);
         }
@@ -142,7 +162,7 @@ namespace LightGBMNet.Tree
         {
             if (values == null)
             {
-                writer.Write(0);
+                writer.Write(-1);
                 return;
             }
 
@@ -151,11 +171,24 @@ namespace LightGBMNet.Tree
                 writer.Write(val);
         }
 
+        public static void WriteIntArrayArray(BinaryWriter writer, int[][] values)
+        {
+            if (values == null)
+            {
+                writer.Write(-1);
+                return;
+            }
+
+            writer.Write(values.Length);
+            foreach (int[] val in values)
+                WriteIntArray(writer, val);
+        }
+
         private static void WriteUIntArray(BinaryWriter writer, uint[] values)
         {
             if (values == null)
             {
-                writer.Write(0);
+                writer.Write(-1);
                 return;
             }
 
@@ -168,7 +201,7 @@ namespace LightGBMNet.Tree
         {
             if (values == null)
             {
-                writer.Write(0);
+                writer.Write(-1);
                 return;
             }
 
@@ -177,10 +210,23 @@ namespace LightGBMNet.Tree
                 writer.Write(val);
         }
 
+        public static void WriteDoubleArrayArray(BinaryWriter writer, double[][] values)
+        {
+            if (values == null)
+            {
+                writer.Write(-1);
+                return;
+            }
+
+            writer.Write(values.Length);
+            foreach (double[] val in values)
+                WriteDoubleArray(writer, val);
+        }
+
         private static int[] ReadIntArray(BinaryReader reader, int size)
         {
-            if (size < 0) throw new FormatException();
-            if (size == 0) return null;
+            if (size < -1) throw new FormatException();
+            if (size == -1) return null;
             var values = new int[size];
             for (int i = 0; i < size; i++)
                 values[i] = reader.ReadInt32();
@@ -189,15 +235,26 @@ namespace LightGBMNet.Tree
 
         private static int[] ReadIntArray(BinaryReader reader)
         {
-            int size = reader.ReadInt32();            
+            int size = reader.ReadInt32();
             return ReadIntArray(reader, size);
+        }
+
+        private static int[][] ReadIntArrayArray(BinaryReader reader)
+        {
+            int size = reader.ReadInt32();
+            if (size < -1) throw new FormatException();
+            if (size == -1) return null;
+            var values = new int[size][];
+            for (int i = 0; i < size; i++)
+                values[i] = ReadIntArray(reader);
+            return values;
         }
 
         private static uint[] ReadUIntArray(BinaryReader reader)
         {
             int size = reader.ReadInt32();
-            if (size < 0) throw new FormatException();
-            if (size == 0) return null;
+            if (size < -1) throw new FormatException();
+            if (size == -1) return null;
             var values = new uint[size];
             for (int i = 0; i < size; i++)
                 values[i] = reader.ReadUInt32();
@@ -207,17 +264,28 @@ namespace LightGBMNet.Tree
         private static double[] ReadDoubleArray(BinaryReader reader)
         {
             int size = reader.ReadInt32();
-            if (size < 0) throw new FormatException();
-            if (size == 0) return null;
+            if (size < -1) throw new FormatException();
+            if (size == -1) return null;
             var values = new double[size];
             for (int i = 0; i < size; i++)
                 values[i] = reader.ReadDouble();
             return values;
         }
+
+        private static double[][] ReadDoubleArrayArray(BinaryReader reader)
+        {
+            int size = reader.ReadInt32();
+            if (size < -1) throw new FormatException();
+            if (size == -1) return null;
+            var values = new double[size][];
+            for (int i = 0; i < size; i++)
+                values[i] = ReadDoubleArray(reader);
+            return values;
+        }
         #endregion
 
         #region Read/write RegressionTree to binary stream
-        internal RegressionTree(BinaryReader reader)
+        internal RegressionTree(BinaryReader reader, bool legacyVersion)
         {
             Nodes = new Node[reader.ReadInt32()];
             for (int i = 0; i < Nodes.Length; i++)
@@ -227,6 +295,20 @@ namespace LightGBMNet.Tree
             CategoricalThresholds = ReadUIntArray(reader);
 
             LeafValues = ReadDoubleArray(reader);
+
+            IsLinear = legacyVersion ? false : reader.ReadBoolean();
+            if (IsLinear)
+            {
+                LeafConst = ReadDoubleArray(reader);
+                LeafFeatures = ReadIntArrayArray(reader);
+                LeafCoeff = ReadDoubleArrayArray(reader);
+            }
+            else
+            {
+                LeafConst = null;
+                LeafFeatures = null;
+                LeafCoeff = null;
+            }
 
             CheckValid(CheckDecode);
         }
@@ -241,11 +323,19 @@ namespace LightGBMNet.Tree
             WriteUIntArray(writer, CategoricalThresholds);
 
             WriteDoubleArray(writer, LeafValues);
+
+            writer.Write(IsLinear);
+            if (IsLinear)
+            {
+                WriteDoubleArray(writer, LeafConst);
+                WriteIntArrayArray(writer, LeafFeatures);
+                WriteDoubleArrayArray(writer, LeafCoeff);
+            }
         }
 
-        public static RegressionTree Load(BinaryReader reader)
+        public static RegressionTree Load(BinaryReader reader, bool legacyVersion)
         {
-            return new RegressionTree(reader);
+            return new RegressionTree(reader, legacyVersion);
         }
         #endregion
 
@@ -254,17 +344,53 @@ namespace LightGBMNet.Tree
         {
             int numMaxNodes = Size(Nodes);
             int numMaxLeaves = numMaxNodes + 1;
-            checker(NumLeaves > 1, "non-positive number of leaves");
+            checker(NumLeaves >= 1, "non-positive number of leaves");
             checker(numMaxLeaves >= NumLeaves, "inconsistent number of leaves with maximum leaf capacity");
             checker(LeafValues != null && LeafValues.Length == numMaxLeaves, "bad leaf value length");
         }
 
         public virtual double GetOutput(ref VBuffer<float> feat)
         {
-            if (Nodes[0].LteChild == 0)
-                return 0;
             int leaf = GetLeaf(ref feat);
-            return GetOutput(leaf);
+            if (IsLinear)
+            {
+                double output = LeafConst[leaf];
+                bool nan_found = false;
+                var leafFeatures = LeafFeatures[leaf];
+                var leafCoeff = LeafCoeff[leaf];
+                for (var i = 0; i < leafFeatures.Length; ++i)
+                {
+                    int feat_raw = leafFeatures[i];
+                    double feat_val = 0.0;
+                    if (feat.IsDense)
+                    {
+                        feat_val = feat.Values[feat_raw];
+                    }
+                    else
+                    {
+                        int ii = VBuffer<int>.FindIndexSorted(feat.Indices, 0, feat.Count, feat_raw);
+                        if (ii < feat.Count && feat.Indices[ii] == feat_raw)
+                            feat_val = feat.Values[ii];
+                    }
+                    if (Double.IsNaN(feat_val))
+                    {
+                        nan_found = true;
+                        break;
+                    }
+                    else
+                    {
+                        output += leafCoeff[i] * feat_val;
+                    }
+                }
+                if (nan_found)
+                    return GetOutput(leaf);
+                else
+                    return output;
+            }
+            else
+            {
+                return GetOutput(leaf);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -39,16 +39,21 @@ namespace LightGBMNet.Tree
         int NumInputs { get; }
         /// <summary>
         /// Evaluate the model on a single row of features
+        /// <paramref name="input"/>
+        /// <paramref name="output"/>
+        /// <paramref name="startIteration"/>
+        /// <paramref name="numIterations">Set to -1 to evaluate all trees</paramref>
         /// </summary>
-        void GetOutput(ref VBuffer<float> input, ref TResult output);
+        void GetOutput(ref VBuffer<float> input, ref TResult output, int startIteration, int numIterations);
     }
 
-    public interface IVectorisedPredictorProducing<TResult> : IPredictorProducing<TResult>
+    public interface IVectorisedPredictorProducing<TResult> : IPredictorProducing<TResult>, ITreeEnsemble
     {
         /// <summary>
         /// Evaluate the model on multiple rows of features
+        /// <paramref name="numIterations">Set to -1 to evaluate all trees</paramref>
         /// </summary>
-        TResult[] GetOutputs(float[][] rows);
+        TResult[] GetOutputs(float[][] rows, int startIteration, int numIterations);
     }
 
     /// <summary>
@@ -121,7 +126,7 @@ namespace LightGBMNet.Tree
         // The total number of features used in training (takes the value of zero if the 
         // written version of the loaded model is less than VerNumFeaturesSerialized)
         protected readonly int NumFeatures;
-        protected readonly bool AverageOutput = false;
+        public readonly bool AverageOutput = false;
 
         // Maximum index of the split features of trainedEnsemble trees
         protected readonly int MaxSplitFeatIdx;
@@ -146,9 +151,9 @@ namespace LightGBMNet.Tree
             writer.Write(AverageOutput);
         }
 
-        protected PredictorBase(BinaryReader reader)
+        protected PredictorBase(BinaryReader reader, bool legacyVersion)
         {
-            TrainedEnsemble = new Ensemble(reader);
+            TrainedEnsemble = new Ensemble(reader, legacyVersion);
             NumFeatures = reader.ReadInt32();
             AverageOutput = reader.ReadBoolean();
 
@@ -182,15 +187,15 @@ namespace LightGBMNet.Tree
             return ifeatMax;
         }
 
-        public virtual void GetOutput(ref VBuffer<float> src, ref double dst)
+        public virtual void GetOutput(ref VBuffer<float> src, ref double dst, int startIteration, int numIterations)
         {
             if(!(src.Length > MaxSplitFeatIdx))
                 throw new ArgumentException("Feature vector too small");
 
-            dst = TrainedEnsemble.GetOutput(ref src);
+            dst = TrainedEnsemble.GetOutput(ref src, startIteration, numIterations);
 
             if (AverageOutput)
-                dst /= TrainedEnsemble.NumTrees;
+                dst /= ((numIterations == -1) ? TrainedEnsemble.NumTrees : numIterations);
         }
         
     }
@@ -204,7 +209,7 @@ namespace LightGBMNet.Tree
         {
         }
 
-        public RegressionPredictor(BinaryReader reader) : base(reader)
+        public RegressionPredictor(BinaryReader reader, bool legacyVersion) : base(reader, legacyVersion)
         {
         }
 
@@ -223,7 +228,7 @@ namespace LightGBMNet.Tree
         {
         }
 
-        private BinaryPredictor(BinaryReader reader) : base(reader)
+        private BinaryPredictor(BinaryReader reader, bool legacyVersion) : base(reader, legacyVersion)
         {
         }
 
@@ -232,9 +237,9 @@ namespace LightGBMNet.Tree
             base.SaveCore(writer);
         }
 
-        public static BinaryPredictor Create(BinaryReader reader)
+        public static BinaryPredictor Create(BinaryReader reader, bool legacyVersion)
         {
-            return new BinaryPredictor(reader);
+            return new BinaryPredictor(reader, legacyVersion);
         }
     }
 
@@ -247,7 +252,7 @@ namespace LightGBMNet.Tree
         {
         }
 
-        private RankingPredictor(BinaryReader reader) : base(reader)
+        private RankingPredictor(BinaryReader reader, bool legacyVersion) : base(reader, legacyVersion)
         {
         }
 
@@ -256,9 +261,9 @@ namespace LightGBMNet.Tree
             base.SaveCore(writer);
         }
 
-        public static RankingPredictor Create(BinaryReader reader)
+        public static RankingPredictor Create(BinaryReader reader, bool legacyVersion)
         {
-            return new RankingPredictor(reader);
+            return new RankingPredictor(reader, legacyVersion);
         }
     }
 
@@ -298,23 +303,30 @@ namespace LightGBMNet.Tree
                 throw new Exception("Unknown IPredictorWithFeatureWeights type");
         }
 
-        public static IPredictorWithFeatureWeights<T> Load<T>(BinaryReader reader)
+        /// <summary>
+        /// Load model from binary stream.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="reader"></param>
+        /// <param name="legacyVersion">Set to true to load files saved prior to inclusion of linear models at tree leaves</param>
+        /// <returns></returns>
+        public static IPredictorWithFeatureWeights<T> Load<T>(BinaryReader reader, bool legacyVersion)
         {
             if (typeof(T) == typeof(double))
             {
                 var flag = reader.ReadInt32();
                 if (flag == 0)
-                    return BinaryPredictor.Create(reader) as IPredictorWithFeatureWeights<T>;
+                    return BinaryPredictor.Create(reader, legacyVersion) as IPredictorWithFeatureWeights<T>;
                 else if (flag == 1)
-                    return new RegressionPredictor(reader) as IPredictorWithFeatureWeights<T>;
+                    return new RegressionPredictor(reader, legacyVersion) as IPredictorWithFeatureWeights<T>;
                 else if (flag == 2)
                 {
-                    var pred = PredictorPersist.Load<double>(reader);
+                    var pred = PredictorPersist.Load<double>(reader, legacyVersion);
                     var calib = CalibratorPersist.Load(reader);
                     return new CalibratedPredictor(pred, calib) as IPredictorWithFeatureWeights<T>;
                 }
                 else if (flag == 3)
-                    return RankingPredictor.Create(reader) as IPredictorWithFeatureWeights<T>;
+                    return RankingPredictor.Create(reader, legacyVersion) as IPredictorWithFeatureWeights<T>;
                 else
                     throw new FormatException("Invalid IPredictorWithFeatureWeights flag");
             }
@@ -324,7 +336,7 @@ namespace LightGBMNet.Tree
                 var len = reader.ReadInt32();
                 var predictors = new IPredictorWithFeatureWeights<double>[len];
                 for (var i = 0; i < len; i++)
-                    predictors[i] = PredictorPersist.Load<double>(reader);
+                    predictors[i] = PredictorPersist.Load<double>(reader, legacyVersion);
                 return OvaPredictor.Create(isSoftMax, predictors) as IPredictorWithFeatureWeights<T>;
             }
             else

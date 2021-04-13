@@ -984,6 +984,7 @@ namespace LightGBMNet.Train
             int nCol,
             bool isRowMajor,
             CApiPredictType predictType,
+            int startIteration,
             int numIteration,
             [MarshalAs(UnmanagedType.LPStr)] string parameter,
             ref long outLen,
@@ -995,7 +996,7 @@ namespace LightGBMNet.Train
                     dataPtr, CApiDType.Float32,
                     nRow, nCol,
                     (isRowMajor ? 1 : 0),
-                    predictType, 0, numIteration, parameter, ref outLen, outResult);
+                    predictType, startIteration, numIteration, parameter, ref outLen, outResult);
         }
 
         public static unsafe int BoosterPredictForMats(
@@ -1003,6 +1004,7 @@ namespace LightGBMNet.Train
             float[][] data,
             int nCol,
             CApiPredictType predictType,
+            int startIteration,
             int numIteration,
             [MarshalAs(UnmanagedType.LPStr)] string parameter,
             long outLen,
@@ -1024,7 +1026,7 @@ namespace LightGBMNet.Train
                         handle,
                         dataPtr, CApiDType.Float32,
                         data.Length, nCol,
-                        predictType, 0, numIteration, parameter, ref outLen,
+                        predictType, startIteration, numIteration, parameter, ref outLen,
                         outResult);
             }
             finally

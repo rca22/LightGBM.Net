@@ -20,9 +20,9 @@ namespace LightGBMNet.Train
             return output;
         }
 
-        public override double[][] GetOutputs(float[][] rows)
+        public override double[][] GetOutputs(float[][] rows, int startIteration, int numIterations)
         {
-            var output = Booster.PredictForMatsMulti(Booster.PredictType.Normal, rows, MaxNumTrees);
+            var output = Booster.PredictForMatsMulti(Booster.PredictType.Normal, rows, startIteration, (numIterations == -1) ? MaxNumTrees : numIterations);
 
             // convert from 2D array to array of rows
             var numRows = output.GetLength(0);

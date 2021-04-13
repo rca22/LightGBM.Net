@@ -20,9 +20,9 @@ namespace LightGBMNet.Train
             return output[0];
         }
 
-        public override double[] GetOutputs(float[][] rows)
+        public override double[] GetOutputs(float[][] rows, int startIteration, int numIterations)
         {
-            return Booster.PredictForMats(Booster.PredictType.Normal, rows, MaxNumTrees);
+            return Booster.PredictForMats(Booster.PredictType.Normal, rows, startIteration, (numIterations == -1) ? MaxNumTrees : numIterations, MaxThreads);
         }
     }
 

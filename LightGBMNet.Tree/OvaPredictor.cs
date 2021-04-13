@@ -67,13 +67,13 @@ namespace LightGBMNet.Tree
             return Predictors.SelectMany(tree => tree.GetFeatureGains(feature));
         }
 
-        public void GetOutput(ref VBuffer<float> src, ref double [] dst)
+        public void GetOutput(ref VBuffer<float> src, ref double [] dst, int startIteration, int numIterations)
         {
             if ((dst?.Length ?? 0) < Predictors.Length)
                 dst = new double[Predictors.Length];
 
             for(var i=0; i < Predictors.Length; i++)
-                Predictors[i].GetOutput(ref src, ref dst[i]);
+                Predictors[i].GetOutput(ref src, ref dst[i], startIteration, numIterations);
 
             if (IsSoftMax)
                 Softmax(dst, Predictors.Length);
@@ -81,7 +81,7 @@ namespace LightGBMNet.Tree
                 Normalize(dst, Predictors.Length);
         }
 
-        private static void Normalize(double[] output, int count)
+        public static void Normalize(double[] output, int count)
         {
             // Clamp to zero and normalize.
             double sum = 0;
@@ -101,7 +101,7 @@ namespace LightGBMNet.Tree
             }
         }
 
-        private static void Softmax(double[] output, int count)
+        public static void Softmax(double[] output, int count)
         {
             double wmax = output[0];
             for (int i = 1; i < count; ++i)
