@@ -69,10 +69,11 @@ namespace LightGBMNet.Train.Test
             if (rand.Next(2) == 0) pms.Learning.EarlyStoppingRound = rand.Next(1, 20);
             if (rand.Next(2) == 0) pms.Common.LinearTree = true;
             if (!pms.Common.LinearTree)
-                if (rand.Next(2) == 0) pms.Common.DeviceType = DeviceType.GPU;
+                // disable GPU test, using native DLL compiled for CPU only
+                if (false && rand.Next(2) == 0) pms.Common.DeviceType = DeviceType.GPU;
 
             pms.Objective.MetricFreq = rand.Next(1, 20);
-
+            pms.Dataset.PreciseFloatParser = true;
             return pms;
         }
 

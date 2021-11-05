@@ -948,7 +948,7 @@ namespace LightGBMNet.Train
         /// Use precise floating point number parsing for text parser (e.g. CSV, TSV, LibSVM input).
         /// Note: setting this to true may lead to much slower text parsing.
         /// </summary>
-        public bool PreciseFloatParser { get; set; } = true;
+        public bool PreciseFloatParser { get; set; } = false;
 
         // These are only used when LightGBM loading directly from file
         //public bool TwoRound { get; set; } = false;

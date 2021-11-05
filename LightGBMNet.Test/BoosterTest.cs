@@ -36,6 +36,9 @@ namespace LightGBMNet.Train.Test
                     (var tree, var pmsout) = booster.GetModel();
                     if (pms != pmsout)
                     {
+                        // if we use DefaultMetric, the returned parameter set will return the objective as the metric
+                        if (pms.Objective.Metric == MetricType.DefaultMetric)
+                            pms.Objective.Metric = EnumHelper.ParseMetric(EnumHelper.GetObjectiveString(pms.Objective.Objective));
                         var dict = pms.ToDict();
                         var dictout = pmsout.ToDict();
                         var keys = dict.Keys.Concat(dictout.Keys).Distinct();
@@ -149,7 +152,13 @@ namespace LightGBMNet.Train.Test
                             if (numEval > 0)
                             {
                                 Assert.Equal(1, numEval);
-                                Assert.Equal(metric, evalNames[0]);
+                                if (metric == MetricType.DefaultMetric)
+                                {
+                                    var metric2 = EnumHelper.ParseMetric(EnumHelper.GetObjectiveString(pms.Objective.Objective));
+                                    Assert.Equal(metric2, evalNames[0]);
+                                }
+                                else
+                                    Assert.Equal(metric, evalNames[0]);
                             }
                         }
                     }
