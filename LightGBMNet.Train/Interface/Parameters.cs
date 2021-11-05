@@ -69,7 +69,8 @@ namespace LightGBMNet.Train
     public enum DeviceType
     {
         CPU,
-        GPU
+        GPU,
+        CUDA
     }
 
     public enum MonotoneConstraintsMethod
@@ -514,6 +515,7 @@ namespace LightGBMNet.Train
             {
                 case DeviceType.CPU: return "cpu";
                 case DeviceType.GPU: return "gpu";
+                case DeviceType.CUDA: return "cuda";
                 default:
                     throw new ArgumentException("DeviceType not recognised");
             }
@@ -525,6 +527,7 @@ namespace LightGBMNet.Train
             {
                 case "cpu": return DeviceType.CPU;
                 case "gpu": return DeviceType.GPU;
+                case "cuda": return DeviceType.CUDA;
                 default:
                     throw new ArgumentException("DeviceType not recognised");
             }
@@ -940,6 +943,12 @@ namespace LightGBMNet.Train
         /// Set this to false to disable the special handle of missing value
         /// </summary>
         public bool UseMissing { get; set; } = true;
+
+        /// <summary>
+        /// Use precise floating point number parsing for text parser (e.g. CSV, TSV, LibSVM input).
+        /// Note: setting this to true may lead to much slower text parsing.
+        /// </summary>
+        public bool PreciseFloatParser { get; set; } = true;
 
         // These are only used when LightGBM loading directly from file
         //public bool TwoRound { get; set; } = false;

@@ -10,7 +10,7 @@ namespace LightGBMNet.Tree
 {
     using TScalarPredictor = IPredictorWithFeatureWeights<double>;
 
-    public sealed class OvaPredictor : IPredictorWithFeatureWeights<double []>
+    public class OvaPredictor : IPredictorWithFeatureWeights<double []>
     {
 
         public TScalarPredictor[] Predictors { get; }
@@ -24,7 +24,7 @@ namespace LightGBMNet.Tree
             return new OvaPredictor(isSoftMax, predictors);
         }
 
-        private OvaPredictor(bool isSoftMax, TScalarPredictor[] predictors)
+        protected OvaPredictor(bool isSoftMax, TScalarPredictor[] predictors)
         {
             if ((predictors?.Length ?? 0) == 0)
                 throw new ArgumentException("Predictors must be non-empty");
@@ -69,11 +69,14 @@ namespace LightGBMNet.Tree
 
         public void GetOutput(ref VBuffer<float> src, ref double [] dst, int startIteration, int numIterations)
         {
+            if (startIteration + numIterations > MaxNumTrees)
+                throw new ArgumentException("startIteration + numIterations must be <= MaxNumTrees");
+
             if ((dst?.Length ?? 0) < Predictors.Length)
                 dst = new double[Predictors.Length];
 
-            for(var i=0; i < Predictors.Length; i++)
-                Predictors[i].GetOutput(ref src, ref dst[i], startIteration, numIterations);
+            for (var i = 0; i < Predictors.Length; i++)
+                Predictors[i].GetOutput(ref src, ref dst[i], startIteration, Math.Min(numIterations, Predictors[i].MaxNumTrees));
 
             if (IsSoftMax)
                 Softmax(dst, Predictors.Length);

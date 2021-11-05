@@ -10,13 +10,13 @@
     <Authors>rca22, mjmckp</Authors>
     <Company />
     <Product>LightGBMNet.Train</Product>
-    <Description>.NET wrapper for LightGBM training (includes native dlls compiled with GPU support)</Description>
+    <Description>.NET wrapper for LightGBM training (includes native dlls compiled for CPU training only)</Description>
     <PackageProjectUrl></PackageProjectUrl>
     <RepositoryUrl>https://github.com/rca22/LightGBM.Net</RepositoryUrl>
     <PackageTags>LightGBM</PackageTags>
-    <Version>1.0.15</Version>
-    <AssemblyVersion>1.0.15.0</AssemblyVersion>
-    <FileVersion>1.0.15.0</FileVersion>
+    <Version>1.0.16</Version>
+    <AssemblyVersion>1.0.16.0</AssemblyVersion>
+    <FileVersion>1.0.16.0</FileVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

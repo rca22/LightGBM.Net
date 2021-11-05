@@ -95,7 +95,7 @@ namespace LightGBMNet.Train.Test
                     for (int j = 0; j < numColumns; j++)
                     {
                         if (rand.Next(10) == 0)
-                            categorical.Add(j, rand.Next(3, 100));
+                            categorical.Add(j, rand.Next(2, 50));
                     }
                 }
             }
