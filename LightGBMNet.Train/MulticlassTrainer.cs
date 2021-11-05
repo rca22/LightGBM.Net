@@ -62,9 +62,7 @@ namespace LightGBMNet.Train
             Ensemble res = new Ensemble();
             for (int i = classID; i < TrainedEnsemble.NumTrees; i += numClass)
             {
-                // Ignore dummy trees
-                if (TrainedEnsemble.GetTreeAt(i).NumLeaves > 1)
-                    res.AddTree(TrainedEnsemble.GetTreeAt(i));
+                res.AddTree(TrainedEnsemble.GetTreeAt(i));
             }
             return res;
         }
