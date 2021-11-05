@@ -76,7 +76,7 @@ namespace LightGBMNet.Tree
                 dst = new double[Predictors.Length];
 
             for (var i = 0; i < Predictors.Length; i++)
-                Predictors[i].GetOutput(ref src, ref dst[i], startIteration, Math.Min(numIterations, Predictors[i].MaxNumTrees));
+                Predictors[i].GetOutput(ref src, ref dst[i], startIteration, numIterations);
 
             if (IsSoftMax)
                 Softmax(dst, Predictors.Length);
