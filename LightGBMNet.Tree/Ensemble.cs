@@ -98,7 +98,7 @@ namespace LightGBMNet.Tree
 
         public double GetOutput(ref VBuffer<float> feat, int startIteration, int numIterations)
         {
-            int numTrees = (numIterations == -1) ? NumTrees : numIterations;
+            int numTrees = (numIterations == -1) ? NumTrees - startIteration : numIterations;
             SetGroups(numTrees);
 
             double result = 0.0;
