@@ -195,7 +195,11 @@ namespace LightGBMNet.Tree
             dst = TrainedEnsemble.GetOutput(ref src, startIteration, numIterations);
 
             if (AverageOutput)
-                dst /= ((numIterations == -1) ? (TrainedEnsemble.NumTrees - startIteration) : numIterations);
+            {
+                int n = (numIterations == -1) ? (TrainedEnsemble.NumTrees - startIteration) : numIterations;
+                if (n > 0)
+                    dst /= n;
+            }
         }
         
     }
