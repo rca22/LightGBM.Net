@@ -56,6 +56,38 @@ namespace LightGBMNet.Train
                 op.Metric = MetricType.MultiLogLoss;     // TODO: why was this MultiError?????
         }
 
+        public MulticlassTrainer( LearningParameters lp
+                                , ObjectiveParameters op
+                                , IVectorisedPredictorWithFeatureWeights<double> nativePredictor
+                                , Datasets datasets
+                                ) : base(lp, op)
+        {
+            if (!(op.Objective == ObjectiveType.MultiClass || op.Objective == ObjectiveType.MultiClassOva))
+                throw new Exception("Require Objective == MultiClass or MultiClassOva");
+
+            if (op.NumClass <= 1)
+                throw new Exception("Require NumClass > 1");
+
+            if (op.Metric == MetricType.DefaultMetric)
+                op.Metric = MetricType.MultiLogLoss;     // TODO: why was this MultiError?????
+
+            if (nativePredictor == null)
+                throw new Exception("nativePredictor is null");
+            if (datasets == null)
+                throw new Exception("datasets is null");
+            // this is because there is no equivalent of Booster.ResetTrainingData for validation data
+            if (datasets.Validation != null)
+                throw new Exception("Not supported: new validation dataset for existing booster. Please set dataset.Validation to null.");
+            Datasets = datasets;
+            if (nativePredictor is MulticlassNativePredictor b)
+            {
+                Booster = b.Booster.Clone();
+                Booster.ResetTrainingData(datasets.Training);
+            }
+            else
+                throw new Exception("nativePredictor is not a multiclass predictor");
+        }
+
         private Ensemble GetBinaryEnsemble(int classID)
         {
             var numClass = Objective.NumClass;

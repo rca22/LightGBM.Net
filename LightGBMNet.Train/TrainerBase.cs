@@ -177,7 +177,7 @@ namespace LightGBMNet.Train
         private protected Ensemble TrainedEnsemble;
 
         protected Booster Booster { get; set; } = null;
-        private Datasets Datasets { get; set; } = null;
+        protected Datasets Datasets { get; set; } = null;
 
         public Dictionary<int, double> TrainMetrics { get; } = new Dictionary<int, double>();
         public Dictionary<int, double> ValidMetrics { get; } = new Dictionary<int, double>();

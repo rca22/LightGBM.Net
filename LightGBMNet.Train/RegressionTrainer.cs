@@ -48,6 +48,43 @@ namespace LightGBMNet.Train
                 op.Metric = MetricType.Mse;
         }
 
+        public RegressionTrainer( LearningParameters lp
+                                , ObjectiveParameters op
+                                , IVectorisedPredictorWithFeatureWeights<double> nativePredictor
+                                , Datasets datasets
+                                ) : base(lp, op)
+        {
+            if (!(op.Objective == ObjectiveType.Regression ||
+                  op.Objective == ObjectiveType.RegressionL1 ||
+                  op.Objective == ObjectiveType.Huber ||
+                  op.Objective == ObjectiveType.Fair ||
+                  op.Objective == ObjectiveType.Poisson ||
+                  op.Objective == ObjectiveType.Quantile ||
+                  op.Objective == ObjectiveType.Mape ||
+                  op.Objective == ObjectiveType.Gamma ||
+                  op.Objective == ObjectiveType.Tweedie
+                  ))
+                throw new Exception("Require regression ObjectiveType");
+
+            if (op.Metric == MetricType.DefaultMetric)
+                op.Metric = MetricType.Mse;
+
+            if (nativePredictor == null)
+                throw new Exception("nativePredictor is null");
+            if (datasets == null)
+                throw new Exception("datasets is null");
+            // this is because there is no equivalent of Booster.ResetTrainingData for validation data
+            if (datasets.Validation != null)
+                throw new Exception("Not supported: new validation dataset for existing booster. Please set dataset.Validation to null.");
+            Datasets = datasets;
+            if (nativePredictor is RegressionNativePredictor b)
+            {
+                Booster = b.Booster.Clone();
+                Booster.ResetTrainingData(datasets.Training);
+            }
+            else
+                throw new Exception("nativePredictor is not a regression predictor");
+        }
         private bool PositiveOutput()
         {
             return (Objective.Objective == ObjectiveType.Poisson ||
