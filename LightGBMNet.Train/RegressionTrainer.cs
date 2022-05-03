@@ -48,12 +48,12 @@ namespace LightGBMNet.Train
                 op.Metric = MetricType.Mse;
         }
 
-        public RegressionTrainer( LearningParameters lp
-                                , ObjectiveParameters op
+        public RegressionTrainer(Parameters parameters
                                 , IVectorisedPredictorWithFeatureWeights<double> nativePredictor
                                 , Datasets datasets
-                                ) : base(lp, op)
+                                ) : base(parameters.Learning, parameters.Objective)
         {
+            var op = parameters.Objective;
             if (!(op.Objective == ObjectiveType.Regression ||
                   op.Objective == ObjectiveType.RegressionL1 ||
                   op.Objective == ObjectiveType.Huber ||
@@ -73,14 +73,12 @@ namespace LightGBMNet.Train
                 throw new Exception("nativePredictor is null");
             if (datasets == null)
                 throw new Exception("datasets is null");
-            // this is because there is no equivalent of Booster.ResetTrainingData for validation data
-            if (datasets.Validation != null)
-                throw new Exception("Not supported: new validation dataset for existing booster. Please set dataset.Validation to null.");
+
             Datasets = datasets;
             if (nativePredictor is RegressionNativePredictor b)
             {
-                Booster = b.Booster.Clone();
-                Booster.ResetTrainingData(datasets.Training);
+                Booster = new Booster(parameters, datasets.Training, datasets.Validation);
+                Booster.MergeWith(b.Booster);
             }
             else
                 throw new Exception("nativePredictor is not a regression predictor");

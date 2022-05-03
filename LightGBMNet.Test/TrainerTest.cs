@@ -267,6 +267,14 @@ namespace LightGBMNet.Train.Test
                                 Assert.Equal(ms.Position, ms.Length);
                             }
 
+                            // continue training a model loaded from file
+                            var datasets3 = new Datasets(datasets.Common, datasets.Dataset, datasets.Training.GetSubset(Enumerable.Range(0, datasets.Training.NumRows / 3).ToArray()), null);
+                            using (var trainer2 = new BinaryTrainer(pms, model2native, datasets3))
+                            {
+                                var model3 = trainer2.ContinueTraining(null, learningRateSchedule);
+                                model3.Dispose();
+                            }
+
                             var rawscore2s = trainer.Evaluate(Booster.PredictType.RawScore, trainData.Features, 0, numIterations);
                             Assert.Equal(trainData.Features.Length, rawscore2s.GetLength(0));
                             Assert.Equal(1, rawscore2s.GetLength(1));
@@ -428,6 +436,14 @@ namespace LightGBMNet.Train.Test
                             ms.Position = 0;
                             model2native = NativePredictorPersist.Load<double[]>(reader) as MulticlassNativePredictor;
                             Assert.Equal(ms.Position, ms.Length);
+                        }
+
+                        // continue training a model loaded from file
+                        var datasets3 = new Datasets(datasets.Common, datasets.Dataset, datasets.Training.GetSubset(Enumerable.Range(0, datasets.Training.NumRows / 3).ToArray()), null);
+                        using (var trainer2 = new MulticlassTrainer(pms, model2native, datasets3))
+                        {
+                            var model3 = trainer2.ContinueTraining(null, learningRateSchedule);
+                            model3.Dispose();
                         }
 
                         var rawscore3s = trainer.Evaluate(Booster.PredictType.RawScore, trainData.Features, 0, numIterations);
@@ -645,7 +661,7 @@ namespace LightGBMNet.Train.Test
                             Assert.Equal(ms.Position, ms.Length);
                         }
 
-                        IPredictorWithFeatureWeights<double> model2native = null;
+                        IVectorisedPredictorWithFeatureWeights<double> model2native = null;
                         using (var ms = new System.IO.MemoryStream())
                         using (var writer = new System.IO.BinaryWriter(ms))
                         using (var reader = new System.IO.BinaryReader(ms))
@@ -654,6 +670,14 @@ namespace LightGBMNet.Train.Test
                             ms.Position = 0;
                             model2native = NativePredictorPersist.Load<double>(reader);
                             Assert.Equal(ms.Position, ms.Length);
+                        }
+
+                        // continue training a model loaded from file
+                        var datasets3 = new Datasets(datasets.Common, datasets.Dataset, datasets.Training.GetSubset(Enumerable.Range(0, datasets.Training.NumRows / 3).ToArray()), null);
+                        using (var trainer2 = new RegressionTrainer(pms, model2native, datasets3))
+                        {
+                            var model3 = trainer2.ContinueTraining(null, learningRateSchedule);
+                            model3.Dispose();
                         }
 
                         var output3s = trainer.Evaluate(Booster.PredictType.Normal, trainData.Features, 0, numIterations);
@@ -831,6 +855,14 @@ namespace LightGBMNet.Train.Test
                             Assert.Equal(ms.Position, ms.Length);
                         }
 
+                        // continue training a model loaded from file
+                        var datasets3 = new Datasets(datasets.Common, datasets.Dataset, datasets.Training.GetSubset(Enumerable.Range(0, datasets.Training.NumRows / 3).ToArray()), null);
+                        using (var trainer2 = new RankingTrainer(pms, model2native, datasets3))
+                        {
+                            var model3 = trainer2.ContinueTraining(null, learningRateSchedule);
+                            model3.Dispose();
+                        }
+
                         var output3s = trainer.Evaluate(Booster.PredictType.Normal, trainData.Features, 0, numIterations);
                         Assert.Equal(trainData.Features.Length, output3s.GetLength(0));
                         Assert.Equal(1, output3s.GetLength(1));
@@ -979,5 +1011,15 @@ namespace LightGBMNet.Train.Test
             }
         }
 
+        //public static void Main(string [] args)
+        //{
+        //    var test = new TrainerTest(null);
+        //    test.TrainBinary();
+        //    test.TrainRegression();
+        //    test.TrainMultiClass();
+        //    test.TrainRanking();
+        //
+        //    return;
+        //}
     }
 }

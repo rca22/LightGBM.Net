@@ -19,6 +19,14 @@ namespace LightGBMNet.Train
         public Dataset Training { get; set; } = null;
         public Dataset Validation { get; set; } = null;
 
+        public Datasets(CommonParameters cp, DatasetParameters dp, Dataset trainData, Dataset validData)
+        {
+            Common = cp;
+            Dataset = dp;
+            Training = trainData;
+            Validation = validData;
+        }
+
         public Datasets(CommonParameters cp, DatasetParameters dp, DataDense trainData, DataDense validData)
         {
             Common = cp;
