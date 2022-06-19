@@ -140,7 +140,7 @@ namespace LightGBMNet.Train
         /// <returns></returns>
         public Booster Clone()
         {
-            var file = System.IO.Path.GetTempFileName();
+            var file = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString() + ".tmp");
             try
             {
                 SaveModel(0, 0, file);

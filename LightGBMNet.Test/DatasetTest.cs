@@ -239,8 +239,7 @@ namespace LightGBMNet.Train.Test
             for (int test = 0; test < 100; ++test)
                 using (var ds = CreateRandom(rand))
                 {
-                    var file = System.IO.Path.GetTempFileName();
-                    var fileName = file.Substring(0, file.Length - 4) + ".bin";
+                    var fileName = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString() + ".bin");
                     try
                     {
                         ds.SaveBinary(fileName);
