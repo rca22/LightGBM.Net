@@ -150,8 +150,25 @@ namespace LightGBMNet.Train
             }
             finally
             {
-                System.IO.File.Delete(file);
+                DeleteFile(file);
             }
+        }
+
+        static void DeleteFile(string file)
+        {
+            do
+            {
+                try
+                {
+                    System.IO.File.Delete(file);
+                }
+                catch (System.IO.IOException)
+                {
+                    // something holding onto file?
+                    System.Threading.Tasks.Task.WaitAll(System.Threading.Tasks.Task.Delay(100));
+                }
+            }
+            while (System.IO.File.Exists(file));
         }
 
         public void ResetParameter(Parameters pms)
