@@ -140,7 +140,7 @@ namespace LightGBMNet.Train
         /// <returns></returns>
         public Booster Clone()
         {
-            var file = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString() + ".tmp");
+            var file = GetTempFileName();
             try
             {
                 SaveModel(0, 0, file);
@@ -152,6 +152,27 @@ namespace LightGBMNet.Train
             {
                 DeleteFile(file);
             }
+        }
+
+        /// Standard IO.Path.GetTempFileName has a fixed range of ~65K filenames
+        static string GetTempFileName()
+        {
+            string file = null;
+            while (file == null)
+            {
+                file = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString() + ".tmp");
+                try
+                {
+                    using (var stream = System.IO.File.Create(file))
+                    { }
+                }
+                // if file exists, try again
+                catch (System.IO.IOException)
+                {
+                    file = null;
+                }
+            }
+            return file;
         }
 
         static void DeleteFile(string file)
