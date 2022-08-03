@@ -164,7 +164,8 @@ namespace LightGBMNet.Train
         #region IDisposable
         public void Dispose()
         {
-            Native.Dispose();
+            if (Native != null)
+                Native.Dispose();
         }
         #endregion
     }
@@ -261,6 +262,7 @@ namespace LightGBMNet.Train
 
         public Predictors<TOutput> Train( Datasets data
                                         , Func<int, double> learningRateSchedule = null     // optional: learning rate as a function of iteration (zero-based)
+                                        , bool createNativePredictor = true
                                         )
         {
             // For multi class, the number of labels is required.
@@ -307,7 +309,7 @@ namespace LightGBMNet.Train
                 throw new Exception($"Parameters differ:\n{strIn}\n{strOut}");
 
             var managed = CreateManagedPredictor();
-            var native = CreateNativePredictor();
+            var native = createNativePredictor ? CreateNativePredictor() : null;
             return new Predictors<TOutput>(managed, native);
         }
 
@@ -319,6 +321,7 @@ namespace LightGBMNet.Train
         /// <returns></returns>
         public Predictors<TOutput> ContinueTraining( Dataset trainingData = null
                                                    , Func<int, double> learningRateSchedule = null     // optional: learning rate as a function of iteration (zero-based)
+                                                   , bool createNativePredictor = true
                                                    )
         {
             if (Booster == null)
@@ -374,7 +377,7 @@ namespace LightGBMNet.Train
                 throw new Exception($"Parameters differ:\n{strIn}\n{strOut}");
 
             var managed = CreateManagedPredictor();
-            var native = CreateNativePredictor();
+            var native = createNativePredictor ? CreateNativePredictor() : null;
             return new Predictors<TOutput>(managed, native);
         }
 

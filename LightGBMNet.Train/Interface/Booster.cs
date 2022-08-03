@@ -140,56 +140,10 @@ namespace LightGBMNet.Train
         /// <returns></returns>
         public Booster Clone()
         {
-            var file = GetTempFileName();
-            try
-            {
-                SaveModel(0, 0, file);
-                var clone = FromFile(file);
-                clone.BestIteration = BestIteration;
-                return clone;
-            }
-            finally
-            {
-                DeleteFile(file);
-            }
-        }
-
-        /// Standard IO.Path.GetTempFileName has a fixed range of ~65K filenames
-        static string GetTempFileName()
-        {
-            string file = null;
-            while (file == null)
-            {
-                file = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString() + ".tmp");
-                try
-                {
-                    using (var stream = System.IO.File.Create(file))
-                    { }
-                }
-                // if file exists, try again
-                catch (System.IO.IOException)
-                {
-                    file = null;
-                }
-            }
-            return file;
-        }
-
-        static void DeleteFile(string file)
-        {
-            do
-            {
-                try
-                {
-                    System.IO.File.Delete(file);
-                }
-                catch (System.IO.IOException)
-                {
-                    // something holding onto file?
-                    System.Threading.Tasks.Task.WaitAll(System.Threading.Tasks.Task.Delay(100));
-                }
-            }
-            while (System.IO.File.Exists(file));
+            var model = GetModelString();
+            var clone = FromString(model);
+            clone.BestIteration = BestIteration;
+            return clone;
         }
 
         public void ResetParameter(Parameters pms)
