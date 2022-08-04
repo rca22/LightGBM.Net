@@ -111,7 +111,8 @@ namespace LightGBMNet.Train
         /// <param name="numCol">number columns</param>
         /// <param name="sampleNonZeroCntPerColumn">Size of each sampling column</param>
         /// <param name="numSampleRow">Number of sampled rows</param>
-        /// <param name="numTotalRow">number of total rows</param>
+        /// <param name="numLocalRow">number of total rows</param>
+        /// <param name="numDistRow">??</param>
         /// <param name="parameters">additional parameters</param>
         /// <param name="ret">created dataset</param>
         /// <returns>0 when succeed, -1 when failure happens</returns>
@@ -121,7 +122,8 @@ namespace LightGBMNet.Train
             int numCol,
             int *sampleNonZeroCntPerColumn,
             int numSampleRow,
-            int numTotalRow,
+            int numLocalRow,
+            long numDistRow,
             [MarshalAs(UnmanagedType.LPStr)]string parameters,
             ref IntPtr ret);
 

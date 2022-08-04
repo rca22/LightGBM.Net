@@ -68,7 +68,7 @@ namespace LightGBMNet.Train
                 fixed (int* ptrSampleNonZeroCntPerColumn = sampleNonZeroCntPerColumn)
                 {
                     PInvokeException.Check(PInvoke.DatasetCreateFromSampledColumn(
-                        (IntPtr)ptrValues, (IntPtr)ptrIndices, numCol, ptrSampleNonZeroCntPerColumn, numSampleRow, numTotalRow,
+                        (IntPtr)ptrValues, (IntPtr)ptrIndices, numCol, ptrSampleNonZeroCntPerColumn, numSampleRow, numTotalRow, numTotalRow,
                         pmString, ref _handle),nameof(PInvoke.DatasetCreateFromSampledColumn));
                 }
             }
