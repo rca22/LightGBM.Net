@@ -49,7 +49,13 @@ namespace LightGBMNet.Train
         /// Random Forest
         RandomForest,
         /// Dropouts meet Multiple Additive Regression Trees
-        Dart,
+        Dart
+    }
+
+    public enum DataSampleStrategyType : int
+    {
+        /// Randomly Bagging Sampling
+        Bagging,
         /// Gradient-based One-Side Sampling
         Goss
     }
@@ -451,7 +457,6 @@ namespace LightGBMNet.Train
                 case BoostingType.GBDT: return "gbdt";
                 case BoostingType.Dart: return "dart";
                 case BoostingType.RandomForest: return "rf";
-                case BoostingType.Goss: return "goss";
                 default:
                     throw new ArgumentException("BoostingType not found");
             }
@@ -469,10 +474,32 @@ namespace LightGBMNet.Train
                     return BoostingType.RandomForest;
                 case "dart":
                     return BoostingType.Dart;
-                case "goss":
-                    return BoostingType.Goss;
                 default:
                     throw new ArgumentException("BoostingType not found");
+            }
+        }
+
+        public static string GetDataSampleStrategyString(DataSampleStrategyType t)
+        {
+            switch (t)
+            {
+                case DataSampleStrategyType.Bagging: return "bagging";
+                case DataSampleStrategyType.Goss: return "goss";
+                default:
+                    throw new ArgumentException("DataSampleStrategyType not found");
+            }
+        }
+
+        public static DataSampleStrategyType ParseDataSampleStrategy(string x)
+        {
+            switch (x)
+            {
+                case "bagging":
+                    return DataSampleStrategyType.Bagging;
+                case "goss":
+                    return DataSampleStrategyType.Goss;
+                default:
+                    throw new ArgumentException("DataSampleStrategyType not found");
             }
         }
 
@@ -650,6 +677,8 @@ namespace LightGBMNet.Train
                 return x => (object)EnumHelper.ParseObjective(x);
             else if (typ == typeof(BoostingType))
                 return x => (object)EnumHelper.ParseBoosting(x);
+            else if (typ == typeof(DataSampleStrategyType))
+                return x => (object)EnumHelper.ParseDataSampleStrategy(x);
             else if (typ == typeof(TreeLearnerType))
                 return x => (object)EnumHelper.ParseTreeLearner(x);
             else if (typ == typeof(DeviceType))
@@ -688,6 +717,8 @@ namespace LightGBMNet.Train
                 return x => EnumHelper.GetObjectiveString((ObjectiveType)x);
             else if (typ == typeof(BoostingType))
                 return x => EnumHelper.GetBoostingString((BoostingType)x);
+            else if (typ == typeof(DataSampleStrategyType))
+                return x => EnumHelper.GetDataSampleStrategyString((DataSampleStrategyType)x);
             else if (typ == typeof(TreeLearnerType))
                 return x => EnumHelper.GetTreeLearnerString((TreeLearnerType)x);
             else if (typ == typeof(DeviceType))
@@ -1108,6 +1139,8 @@ namespace LightGBMNet.Train
         public TreeLearnerType TreeLearner { get; set; } = TreeLearnerType.Serial;
 
         public BoostingType Boosting { get; set; } = BoostingType.GBDT;
+
+        public DataSampleStrategyType DataSampleStrategy { get; set; } = DataSampleStrategyType.Bagging;
 
         /// <summary>
         /// Number of boosting iterations

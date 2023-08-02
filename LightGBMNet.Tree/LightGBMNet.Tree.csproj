@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net7.0-windows</TargetFramework>
     <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Authors>rca22, mjmckp</Authors>
@@ -9,7 +9,7 @@
     <Description>Pure .NET implementation of LightGBM trees</Description>
     <RepositoryUrl>https://github.com/rca22/LightGBM.Net</RepositoryUrl>
     <PackageTags>LightGBM</PackageTags>
-    <Version>1.0.19</Version>
+    <Version>1.0.20</Version>
     <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
 

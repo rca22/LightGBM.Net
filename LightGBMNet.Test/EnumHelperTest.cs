@@ -36,6 +36,18 @@ namespace LightGBMNet.Train.Test
         }
 
         [Fact]
+        public void TestDataSampleStrategyType()
+        {
+            var vals = (DataSampleStrategyType[])Enum.GetValues(typeof(DataSampleStrategyType));
+            foreach (var v in vals)
+            {
+                var s = EnumHelper.GetDataSampleStrategyString(v);
+                var vBar = EnumHelper.ParseDataSampleStrategy(s);
+                Assert.Equal(v, vBar);
+            }
+        }
+
+        [Fact]
         public void TestTreeLearnerType()
         {
             var vals = (TreeLearnerType[])Enum.GetValues(typeof(TreeLearnerType));

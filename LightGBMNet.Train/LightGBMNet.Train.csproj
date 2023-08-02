@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net7.0-windows</TargetFramework>
     <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
     <Platforms>x64</Platforms>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -14,9 +14,9 @@
     <PackageProjectUrl></PackageProjectUrl>
     <RepositoryUrl>https://github.com/rca22/LightGBM.Net</RepositoryUrl>
     <PackageTags>LightGBM</PackageTags>
-    <Version>1.0.19</Version>
-    <AssemblyVersion>1.0.19.0</AssemblyVersion>
-    <FileVersion>1.0.19.0</FileVersion>
+    <Version>1.0.20</Version>
+    <AssemblyVersion>1.0.20.0</AssemblyVersion>
+    <FileVersion>1.0.20.0</FileVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

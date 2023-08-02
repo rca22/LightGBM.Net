@@ -29,8 +29,13 @@ namespace LightGBMNet.Train.Test
             new BoostingType[] {
                 BoostingType.GBDT,
                 BoostingType.RandomForest,
-                BoostingType.Dart,
-                BoostingType.Goss
+                BoostingType.Dart
+            };
+
+        protected static DataSampleStrategyType[] dataSampleStrategyTypes =
+            new DataSampleStrategyType[] {
+                DataSampleStrategyType.Bagging,
+                DataSampleStrategyType.Goss
             };
 
         protected static Parameters GenerateParameters(Random rand, ObjectiveType objective, int numColumns)
@@ -41,8 +46,9 @@ namespace LightGBMNet.Train.Test
 
             pms.Objective.Objective = objective;
             pms.Learning.Boosting = boostingTypes[rand.Next(boostingTypes.Length)];
+            pms.Learning.DataSampleStrategy = dataSampleStrategyTypes[rand.Next(dataSampleStrategyTypes.Length)];
 
-            if (pms.Learning.Boosting == BoostingType.RandomForest)
+            if (pms.Learning.DataSampleStrategy != DataSampleStrategyType.Goss)
             {
                 pms.Learning.BaggingFreq = rand.Next(1, 10);
                 pms.Learning.BaggingFraction = rand.Next(1, 99) / 100.0;
