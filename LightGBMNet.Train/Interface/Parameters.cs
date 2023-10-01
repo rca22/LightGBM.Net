@@ -261,6 +261,13 @@ namespace LightGBMNet.Train
 
         public static MetricType ParseMetric(string x)
         {
+            // TODO: workaround for fact that externally trained models may contain multiple values of 
+            // metric - so just retain the first metric and ignore the rest.
+            if (x.Contains(','))
+            {
+                x = x.Substring(0, x.IndexOf(','));
+            }
+
             switch (x)
             {
                 case "":

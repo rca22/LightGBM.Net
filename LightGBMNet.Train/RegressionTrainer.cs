@@ -83,29 +83,57 @@ namespace LightGBMNet.Train
             else
                 throw new Exception("nativePredictor is not a regression predictor");
         }
-        private bool PositiveOutput()
+        private static bool PositiveOutput(ObjectiveType objectiveType)
         {
-            return (Objective.Objective == ObjectiveType.Poisson ||
-                    Objective.Objective == ObjectiveType.Gamma ||
-                    Objective.Objective == ObjectiveType.Tweedie);
+            return (objectiveType == ObjectiveType.Poisson ||
+                    objectiveType == ObjectiveType.Gamma ||
+                    objectiveType == ObjectiveType.Tweedie);
         }
 
-        private bool SqrtOutput()
+        private static bool SqrtOutput(ObjectiveParameters objective)
         {
-            return Objective.RegSqrt &&
-                   Objective.Objective != ObjectiveType.Huber &&
-                   !PositiveOutput();
+            return objective.RegSqrt &&
+                   objective.Objective != ObjectiveType.Huber &&
+                   !RegressionTrainer.PositiveOutput(objective.Objective);
+        }
+
+        /// <summary>
+        /// Load an externally trained model from a string
+        /// </summary>
+        /// <param name="modelString">Externally trained model string</param>
+        public static Predictors<double> PredictorsFromString(string modelString)
+        {
+            var Booster = LightGBMNet.Train.Booster.FromString(modelString);
+            IVectorisedPredictorWithFeatureWeights<double> native = new RegressionNativePredictor(Booster);
+
+            (var model, var args) = Booster.GetModel();
+
+            var averageOutput = (args.Learning.Boosting == BoostingType.RandomForest);
+            IPredictorWithFeatureWeights<double> managed = CreateManagedPredictor(model, Booster.NumFeatures, averageOutput, args.Objective);
+
+            return new Predictors<double>(managed, native);
+        }
+        public static Predictors<double> PredictorsFromFile(string fileName)
+        {
+            if (!System.IO.File.Exists(fileName))
+                throw new Exception($"File does not exist: {fileName}");
+            return PredictorsFromString(System.IO.File.ReadAllText(fileName));
+        }
+
+        private static IPredictorWithFeatureWeights<double> CreateManagedPredictor(Ensemble trainedEnsemble, int featureCount, bool averageOutput, ObjectiveParameters objective)
+        {
+            var pred = new RegressionPredictor(trainedEnsemble, featureCount, averageOutput);
+            if (PositiveOutput(objective.Objective))
+                return new CalibratedPredictor(pred, ExponentialCalibrator.Instance);
+            else if (SqrtOutput(objective))
+                return new CalibratedPredictor(pred, SqrtCalibrator.Instance);
+            else
+                return pred;
         }
 
         private protected override IPredictorWithFeatureWeights<double> CreateManagedPredictor()
         {
-            var pred = new RegressionPredictor(TrainedEnsemble, FeatureCount, AverageOutput);
-            if (PositiveOutput())
-                return new CalibratedPredictor(pred, ExponentialCalibrator.Instance);
-            else if (SqrtOutput())
-                return new CalibratedPredictor(pred, SqrtCalibrator.Instance);
-            else
-                return pred;
+            return CreateManagedPredictor(TrainedEnsemble, FeatureCount, AverageOutput, Objective);
         }
 
         private protected override IVectorisedPredictorWithFeatureWeights<double> CreateNativePredictor()

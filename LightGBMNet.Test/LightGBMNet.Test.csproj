@@ -31,4 +31,19 @@
     <ProjectReference Include="..\LightGBMNet.Train\LightGBMNet.Train.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="models\binary_model.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="models\multiclass_model.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="models\ranking_model.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="models\regression_model.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

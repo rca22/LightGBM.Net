@@ -449,7 +449,7 @@ namespace LightGBMNet.Train
         public static extern int DatasetFree(IntPtr handle);
 
         /// <summary>
-        /// save dateset to binary file
+        /// save dataset to binary file
         /// </summary>
         /// <param name="handle">a instance of dataset</param>
         /// <param name="fileName">file name</param>

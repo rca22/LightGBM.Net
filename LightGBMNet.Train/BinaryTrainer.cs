@@ -70,11 +70,39 @@ namespace LightGBMNet.Train
                 throw new Exception("nativePredictor is not a binary predictor");
         }
 
+        /// <summary>
+        /// Load an externally trained model from a string
+        /// </summary>
+        /// <param name="modelString">Externally trained model string</param>
+        public static Predictors<double> PredictorsFromString(string modelString)
+        {
+            var Booster = LightGBMNet.Train.Booster.FromString(modelString);
+            IVectorisedPredictorWithFeatureWeights<double> native = new BinaryNativePredictor(Booster);
+            
+            (var model, var args) = Booster.GetModel();
+
+            var averageOutput = (args.Learning.Boosting == BoostingType.RandomForest);
+            IPredictorWithFeatureWeights<double> managed = CreateManagedPredictor(model, Booster.NumFeatures, averageOutput, args.Objective);
+
+            return new Predictors<double>(managed, native);
+        }
+        public static Predictors<double> PredictorsFromFile(string fileName)
+        {
+            if (!System.IO.File.Exists(fileName))
+                throw new Exception($"File does not exist: {fileName}");
+            return PredictorsFromString(System.IO.File.ReadAllText(fileName));
+        }
+
+        private static IPredictorWithFeatureWeights<double> CreateManagedPredictor(Ensemble trainedEnsemble, int featureCount, bool averageOutput, ObjectiveParameters objective)
+        {
+            var pred = new BinaryPredictor(trainedEnsemble, featureCount, averageOutput);
+            var cali = new PlattCalibrator(-objective.Sigmoid);
+            return new CalibratedPredictor(pred, cali);
+        }
+
         private protected override IPredictorWithFeatureWeights<double> CreateManagedPredictor()
         {
-            var pred = new BinaryPredictor(TrainedEnsemble, FeatureCount, AverageOutput);
-            var cali = new PlattCalibrator(-Objective.Sigmoid);
-            return new CalibratedPredictor(pred, cali);
+            return CreateManagedPredictor(TrainedEnsemble, FeatureCount, AverageOutput, Objective);
         }
 
         private protected override IVectorisedPredictorWithFeatureWeights<double> CreateNativePredictor()

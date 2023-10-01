@@ -4,6 +4,9 @@ using System.Linq;
 using Xunit;
 using Xunit.Abstractions;
 using LightGBMNet.Tree;
+using System.Threading;
+using System.IO;
+using System.Diagnostics;
 
 namespace LightGBMNet.Train.Test
 {
@@ -208,7 +211,7 @@ namespace LightGBMNet.Train.Test
             {
                 int numColumns = rand.Next(1, 10);
                 var pms = GenerateParameters(rand, ObjectiveType.Binary, numColumns);
-              //pms.Common.NumThreads = 1;
+                //pms.Common.NumThreads = 1;
                 Dictionary<int, int> categorical = null;
                 var trainData = CreateRandomDenseClassifyData(rand, 2, ref categorical, pms.Dataset.UseMissing, numColumns);
                 var validData = (pms.Learning.EarlyStoppingRound > 0 || rand.Next(2) == 0) ? CreateRandomDenseClassifyData(rand, 2, ref categorical, pms.Dataset.UseMissing, numColumns) : null;
@@ -230,7 +233,7 @@ namespace LightGBMNet.Train.Test
                     {
                         //trainer.ToCommandLineFiles(datasets);
 
-                        var datasets2 = (rand.Next(2) == 0) ? null : datasets.Training.GetSubset(Enumerable.Range(0, datasets.Training.NumRows/2).ToArray());
+                        var datasets2 = (rand.Next(2) == 0) ? null : datasets.Training.GetSubset(Enumerable.Range(0, datasets.Training.NumRows / 2).ToArray());
 
                         var model = trainer.Train(datasets, learningRateSchedule);
                         {
@@ -508,7 +511,7 @@ namespace LightGBMNet.Train.Test
                             //Console.WriteLine(trainer.GetModelString());
                             //throw new Exception($"Raw score mismatch at row {irow}: {rawscores[i]} vs {rawscores3[i]} (error: {Math.Abs(rawscores[i] - rawscores3[i])}) input: {String.Join(", ", row)}");
 
-                            double [] outputNative = null;
+                            double[] outputNative = null;
                             model.Native.GetOutput(ref input, ref outputNative, 0, numIterations);
 
                             double[] outputNative2 = null;
@@ -593,7 +596,7 @@ namespace LightGBMNet.Train.Test
                 int numColumns = rand.Next(1, 10);
                 var objective = objectiveTypes[rand.Next(objectiveTypes.Length)];
                 var pms = GenerateParameters(rand, objective, numColumns);
-              //pms.Common.NumThreads = 1;  // uncomment to debug
+                //pms.Common.NumThreads = 1;  // uncomment to debug
                 if (pms.Common.LinearTree)
                 {
                     if (pms.Objective.Objective == ObjectiveType.RegressionL1)
@@ -615,7 +618,7 @@ namespace LightGBMNet.Train.Test
                             pms.Dataset.MonotoneConstraints[i] = 0;
                     }
                     if (objective == ObjectiveType.Mape || objective == ObjectiveType.Quantile || objective == ObjectiveType.RegressionL1)
-                            pms.Dataset.MonotoneConstraints = Array.Empty<int>();
+                        pms.Dataset.MonotoneConstraints = Array.Empty<int>();
                     pms.Dataset.CategoricalFeature = categorical.Keys.ToArray();
 
                     // make labels positive for certain objective types
@@ -709,21 +712,21 @@ namespace LightGBMNet.Train.Test
                             var output3 = trainer.Evaluate(Booster.PredictType.Normal, row, 0, numIterations);
                             Assert.Single(output3);
                             Assert.Equal(output3[0], output3s[i, 0]);
-                            
+
                             Assert.Equal(output3[0], output3natives[i]);
-                          //if (!ok)
-                          //{
-                          //    for(var j=0; j<model.Managed.MaxNumTrees; j++)
-                          //    {
-                          //        var output3j = trainer.Evaluate(Booster.PredictType.Normal, row, j, 1);
-                          //        var output3nativesj = model.Native.GetOutputs(new float[][] { row }, j, 1);
-                          //        ok = CompareVals(output3j[0], output3nativesj[0]);
-                          //        if (!ok)
-                          //            Console.WriteLine($"Mismatch at tree {j}, {output3j[0]} vs {output3nativesj[i]}, diff {output3j[0] - output3nativesj[i]}");
-                          //    }
-                          //    Console.WriteLine();
-                          //}
-                          //Assert.True(ok);
+                            //if (!ok)
+                            //{
+                            //    for(var j=0; j<model.Managed.MaxNumTrees; j++)
+                            //    {
+                            //        var output3j = trainer.Evaluate(Booster.PredictType.Normal, row, j, 1);
+                            //        var output3nativesj = model.Native.GetOutputs(new float[][] { row }, j, 1);
+                            //        ok = CompareVals(output3j[0], output3nativesj[0]);
+                            //        if (!ok)
+                            //            Console.WriteLine($"Mismatch at tree {j}, {output3j[0]} vs {output3nativesj[i]}, diff {output3j[0] - output3nativesj[i]}");
+                            //    }
+                            //    Console.WriteLine();
+                            //}
+                            //Assert.True(ok);
 
                             var ok = CompareVals(output, output3[0]);
                             if (!ok)
@@ -735,7 +738,7 @@ namespace LightGBMNet.Train.Test
                                     var output3j = trainer.Evaluate(Booster.PredictType.Normal, row, j, 1);
                                     ok = CompareVals(outputj, output3j[0]);
                                     if (!ok)
-                                        Console.WriteLine($"Mismatch at tree {j}, {outputj} vs {output3j[0]}, diff {outputj- output3j[0]}");
+                                        Console.WriteLine($"Mismatch at tree {j}, {outputj} vs {output3j[0]}, diff {outputj - output3j[0]}");
                                 }
                                 Console.WriteLine();
                             }
@@ -776,7 +779,7 @@ namespace LightGBMNet.Train.Test
             }
         }
 
-        public static int [] GenGroups(Random random, int len)
+        public static int[] GenGroups(Random random, int len)
         {
             var groups = new List<int>();
             var count = 0;
@@ -1014,6 +1017,31 @@ namespace LightGBMNet.Train.Test
                     var elapsed3 = timer.Elapsed;
                     output.WriteLine($"MaxThreads={maxThreads} EvalManaged={elapsed3.TotalMilliseconds}");
                 }
+            }
+        }
+
+        [Fact]
+        public void LoadExternalModels()
+        {
+            var path = Path.GetDirectoryName(this.GetType().Assembly.Location);
+            using (var binary = BinaryTrainer.PredictorsFromFile(Path.Combine(path, "models", "binary_model.txt")))
+            {
+                Assert.Equal(28, binary.Managed.NumInputs);
+            }
+
+            using (var regression = RegressionTrainer.PredictorsFromFile(Path.Combine(path, "models", "regression_model.txt")))
+            {
+                Assert.Equal(28, regression.Managed.NumInputs);
+            }
+
+            using (var ranking = RankingTrainer.PredictorsFromFile(Path.Combine(path, "models", "ranking_model.txt")))
+            {
+                Assert.Equal(301, ranking.Managed.NumInputs);
+            }
+
+            using (var multiclass = MulticlassTrainer.PredictorsFromFile(Path.Combine(path, "models", "multiclass_model.txt")))
+            {
+                Assert.Equal(28, multiclass.Managed.NumInputs);
             }
         }
 

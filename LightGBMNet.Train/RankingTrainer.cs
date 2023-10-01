@@ -66,6 +66,28 @@ namespace LightGBMNet.Train
                 throw new Exception("nativePredictor is not a ranking predictor");
         }
 
+        /// <summary>
+        /// Load an externally trained model from a string
+        /// </summary>
+        /// <param name="modelString">Externally trained model string</param>
+        public static Predictors<double> PredictorsFromString(string modelString)
+        {
+            var Booster = LightGBMNet.Train.Booster.FromString(modelString);
+            IVectorisedPredictorWithFeatureWeights<double> native = new RankingNativePredictor(Booster);
+
+            (var model, var args) = Booster.GetModel();
+            var averageOutput = (args.Learning.Boosting == BoostingType.RandomForest);
+            var managed = new RankingPredictor(model, Booster.NumFeatures, averageOutput);
+
+            return new Predictors<double>(managed, native);
+        }
+        public static Predictors<double> PredictorsFromFile(string fileName)
+        {
+            if (!System.IO.File.Exists(fileName))
+                throw new Exception($"File does not exist: {fileName}");
+            return PredictorsFromString(System.IO.File.ReadAllText(fileName));
+        }
+
         private protected override IPredictorWithFeatureWeights<double> CreateManagedPredictor()
         {
             return new RankingPredictor(TrainedEnsemble, FeatureCount, AverageOutput);
