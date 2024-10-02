@@ -86,17 +86,6 @@ namespace LightGBMNet.Train
                 throw new Exception("nativePredictor is not a multiclass predictor");
         }
 
-        private static Ensemble GetBinaryEnsemble(Ensemble trainedEnsemble, int numClass, int classID)
-        {
-          //var numClass = Objective.NumClass;
-            Ensemble res = new Ensemble();
-            for (int i = classID; i < trainedEnsemble.NumTrees; i += numClass)
-            {
-                res.AddTree(trainedEnsemble.GetTreeAt(i));
-            }
-            return res;
-        }
-
         /// <summary>
         /// Load an externally trained model from a string
         /// </summary>
@@ -105,11 +94,7 @@ namespace LightGBMNet.Train
         {
             var Booster = LightGBMNet.Train.Booster.FromString(modelString);
             IVectorisedPredictorWithFeatureWeights<double[]> native = new MulticlassNativePredictor(Booster);
-
-            (var model, var args) = Booster.GetModel();
-            var averageOutput = (args.Learning.Boosting == BoostingType.RandomForest);
-            var managed = CreateManagedPredictor(model, Booster.NumFeatures, averageOutput, args.Objective);
-
+            var managed = OvaPredictor.FromString(modelString);
             return new Predictors<double[]>(managed, native);
         }
         public static Predictors<double []> PredictorsFromFile(string fileName)
@@ -119,31 +104,9 @@ namespace LightGBMNet.Train
             return PredictorsFromString(System.IO.File.ReadAllText(fileName));
         }
 
-        private static BinaryPredictor CreateBinaryPredictor(Ensemble trainedEnsemble, int numClass, int featureCount, bool averageOutput, int classID)
-        {
-            return new BinaryPredictor(GetBinaryEnsemble(trainedEnsemble, numClass, classID), featureCount, averageOutput);
-        }
-
-        private static IPredictorWithFeatureWeights<double[]> CreateManagedPredictor(Ensemble trainedEnsemble, int featureCount, bool averageOutput, ObjectiveParameters objective)
-        {
-            var numClass = objective.NumClass;
-            if (trainedEnsemble.NumTrees % numClass != 0)
-                throw new Exception("Number of trees should be a multiple of number of classes.");
-
-            var isSoftMax = (objective.Objective == ObjectiveType.MultiClass);
-            IPredictorWithFeatureWeights<double>[] predictors = new IPredictorWithFeatureWeights<double>[numClass];
-            var cali = isSoftMax ? null : new PlattCalibrator(-objective.Sigmoid);
-            for (int i = 0; i < numClass; ++i)
-            {
-                var pred = CreateBinaryPredictor(trainedEnsemble, numClass, featureCount, averageOutput, i) as IPredictorWithFeatureWeights<double>;
-                predictors[i] = isSoftMax ? pred : new CalibratedPredictor(pred, cali);
-            }
-            return OvaPredictor.Create(isSoftMax, predictors);
-        }
-
         private protected override IPredictorWithFeatureWeights<double []> CreateManagedPredictor()
         {
-            return CreateManagedPredictor(TrainedEnsemble, FeatureCount, AverageOutput, Objective);
+            return OvaPredictor.CreateManagedPredictor(TrainedEnsemble, FeatureCount, AverageOutput, Objective);
         }
 
         private protected override IVectorisedPredictorWithFeatureWeights<double []> CreateNativePredictor()

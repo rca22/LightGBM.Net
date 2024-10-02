@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using LightGBMNet.Train;
+using LightGBMNet.Tree;
 using Xunit;
 
 namespace LightGBMNet.Train.Test

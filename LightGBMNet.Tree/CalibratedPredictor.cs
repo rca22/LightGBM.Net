@@ -25,6 +25,7 @@ namespace LightGBMNet.Tree
             SubPredictor = predictor;
             Calibrator = calibrator;
         }
+
         public int NumInputs => SubPredictor.NumInputs;
         public int MaxNumTrees {
             get => SubPredictor.MaxNumTrees;

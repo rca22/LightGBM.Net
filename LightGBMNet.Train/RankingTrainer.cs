@@ -74,11 +74,7 @@ namespace LightGBMNet.Train
         {
             var Booster = LightGBMNet.Train.Booster.FromString(modelString);
             IVectorisedPredictorWithFeatureWeights<double> native = new RankingNativePredictor(Booster);
-
-            (var model, var args) = Booster.GetModel();
-            var averageOutput = (args.Learning.Boosting == BoostingType.RandomForest);
-            var managed = new RankingPredictor(model, Booster.NumFeatures, averageOutput);
-
+            var managed = RankingPredictor.FromString(modelString);
             return new Predictors<double>(managed, native);
         }
         public static Predictors<double> PredictorsFromFile(string fileName)

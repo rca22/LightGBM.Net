@@ -78,11 +78,8 @@ namespace LightGBMNet.Train
         {
             var Booster = LightGBMNet.Train.Booster.FromString(modelString);
             IVectorisedPredictorWithFeatureWeights<double> native = new BinaryNativePredictor(Booster);
-            
-            (var model, var args) = Booster.GetModel();
 
-            var averageOutput = (args.Learning.Boosting == BoostingType.RandomForest);
-            IPredictorWithFeatureWeights<double> managed = CreateManagedPredictor(model, Booster.NumFeatures, averageOutput, args.Objective);
+            var managed = BinaryPredictor.FromString(modelString);
 
             return new Predictors<double>(managed, native);
         }
@@ -93,16 +90,9 @@ namespace LightGBMNet.Train
             return PredictorsFromString(System.IO.File.ReadAllText(fileName));
         }
 
-        private static IPredictorWithFeatureWeights<double> CreateManagedPredictor(Ensemble trainedEnsemble, int featureCount, bool averageOutput, ObjectiveParameters objective)
-        {
-            var pred = new BinaryPredictor(trainedEnsemble, featureCount, averageOutput);
-            var cali = new PlattCalibrator(-objective.Sigmoid);
-            return new CalibratedPredictor(pred, cali);
-        }
-
         private protected override IPredictorWithFeatureWeights<double> CreateManagedPredictor()
         {
-            return CreateManagedPredictor(TrainedEnsemble, FeatureCount, AverageOutput, Objective);
+            return BinaryPredictor.CreateManagedPredictor(TrainedEnsemble, FeatureCount, AverageOutput, Objective);
         }
 
         private protected override IVectorisedPredictorWithFeatureWeights<double> CreateNativePredictor()

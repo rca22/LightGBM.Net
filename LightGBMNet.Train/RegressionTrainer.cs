@@ -83,20 +83,6 @@ namespace LightGBMNet.Train
             else
                 throw new Exception("nativePredictor is not a regression predictor");
         }
-        private static bool PositiveOutput(ObjectiveType objectiveType)
-        {
-            return (objectiveType == ObjectiveType.Poisson ||
-                    objectiveType == ObjectiveType.Gamma ||
-                    objectiveType == ObjectiveType.Tweedie);
-        }
-
-        private static bool SqrtOutput(ObjectiveParameters objective)
-        {
-            return objective.RegSqrt &&
-                   objective.Objective != ObjectiveType.Huber &&
-                   !RegressionTrainer.PositiveOutput(objective.Objective);
-        }
-
         /// <summary>
         /// Load an externally trained model from a string
         /// </summary>
@@ -106,10 +92,7 @@ namespace LightGBMNet.Train
             var Booster = LightGBMNet.Train.Booster.FromString(modelString);
             IVectorisedPredictorWithFeatureWeights<double> native = new RegressionNativePredictor(Booster);
 
-            (var model, var args) = Booster.GetModel();
-
-            var averageOutput = (args.Learning.Boosting == BoostingType.RandomForest);
-            IPredictorWithFeatureWeights<double> managed = CreateManagedPredictor(model, Booster.NumFeatures, averageOutput, args.Objective);
+            var managed = RegressionPredictor.FromString(modelString);
 
             return new Predictors<double>(managed, native);
         }
@@ -120,20 +103,9 @@ namespace LightGBMNet.Train
             return PredictorsFromString(System.IO.File.ReadAllText(fileName));
         }
 
-        private static IPredictorWithFeatureWeights<double> CreateManagedPredictor(Ensemble trainedEnsemble, int featureCount, bool averageOutput, ObjectiveParameters objective)
-        {
-            var pred = new RegressionPredictor(trainedEnsemble, featureCount, averageOutput);
-            if (PositiveOutput(objective.Objective))
-                return new CalibratedPredictor(pred, ExponentialCalibrator.Instance);
-            else if (SqrtOutput(objective))
-                return new CalibratedPredictor(pred, SqrtCalibrator.Instance);
-            else
-                return pred;
-        }
-
         private protected override IPredictorWithFeatureWeights<double> CreateManagedPredictor()
         {
-            return CreateManagedPredictor(TrainedEnsemble, FeatureCount, AverageOutput, Objective);
+            return RegressionPredictor.CreateManagedPredictor(TrainedEnsemble, FeatureCount, AverageOutput, Objective);
         }
 
         private protected override IVectorisedPredictorWithFeatureWeights<double> CreateNativePredictor()

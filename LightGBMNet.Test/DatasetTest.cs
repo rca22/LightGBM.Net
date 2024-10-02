@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Xunit;
+using LightGBMNet.Tree;
 
 namespace LightGBMNet.Train.Test
 {

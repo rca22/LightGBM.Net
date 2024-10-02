@@ -287,7 +287,7 @@ namespace LightGBMNet.Train
             var args = GetParameters(data);
             Booster = Train(args, data.Training, data.Validation, TrainMetrics, ValidMetrics, learningRateSchedule);
 
-            (var model, var argsout) = Booster.GetModel();
+            (var model, var argsout, var numFeatures) = Ensemble.GetModelFromString(Booster.GetModelString());
             TrainedEnsemble = model;
             FeatureCount = data.Training.NumFeatures;
 
@@ -355,7 +355,7 @@ namespace LightGBMNet.Train
             // TODO: HOW TO RESET VALIDATION DATA???
             Train(args, Booster, (Datasets.Validation != null), TrainMetrics, ValidMetrics, learningRateSchedule);
 
-            (var model, var argsout) = Booster.GetModel();
+            (var model, var argsout, var numFeatures) = Ensemble.GetModelFromString(Booster.GetModelString());
             TrainedEnsemble = model;
             FeatureCount = Datasets.Training.NumFeatures;
 

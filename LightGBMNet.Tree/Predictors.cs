@@ -213,6 +213,47 @@ namespace LightGBMNet.Tree
         {
         }
 
+        private static bool PositiveOutput(ObjectiveType objectiveType)
+        {
+            return (objectiveType == ObjectiveType.Poisson ||
+                    objectiveType == ObjectiveType.Gamma ||
+                    objectiveType == ObjectiveType.Tweedie);
+        }
+
+        private static bool SqrtOutput(ObjectiveParameters objective)
+        {
+            return objective.RegSqrt &&
+                   objective.Objective != ObjectiveType.Huber &&
+                   !PositiveOutput(objective.Objective);
+        }
+
+        public static IPredictorWithFeatureWeights<double> CreateManagedPredictor(Ensemble trainedEnsemble, int featureCount, bool averageOutput, ObjectiveParameters objective)
+        {
+            var pred = new RegressionPredictor(trainedEnsemble, featureCount, averageOutput);
+            if (PositiveOutput(objective.Objective))
+                return new CalibratedPredictor(pred, ExponentialCalibrator.Instance);
+            else if (SqrtOutput(objective))
+                return new CalibratedPredictor(pred, SqrtCalibrator.Instance);
+            else
+                return pred;
+        }
+
+        public static IPredictorWithFeatureWeights<double> FromString(string modelString)
+        {
+            (var model, var args, int numFeatures) = Ensemble.GetModelFromString(modelString);
+
+            var averageOutput = (args.Learning.Boosting == BoostingType.RandomForest);
+            IPredictorWithFeatureWeights<double> managed = RegressionPredictor.CreateManagedPredictor(model, numFeatures, averageOutput, args.Objective);
+
+            return managed;
+        }
+        public static IPredictorWithFeatureWeights<double> FromFile(string fileName)
+        {
+            if (!System.IO.File.Exists(fileName))
+                throw new Exception($"File does not exist: {fileName}");
+            return FromString(System.IO.File.ReadAllText(fileName));
+        }
+
         public RegressionPredictor(BinaryReader reader, bool legacyVersion) : base(reader, legacyVersion)
         {
         }
@@ -234,6 +275,33 @@ namespace LightGBMNet.Tree
 
         private BinaryPredictor(BinaryReader reader, bool legacyVersion) : base(reader, legacyVersion)
         {
+        }
+
+        public static IPredictorWithFeatureWeights<double> CreateManagedPredictor(Ensemble trainedEnsemble, int featureCount, bool averageOutput, ObjectiveParameters objective)
+        {
+            var pred = new BinaryPredictor(trainedEnsemble, featureCount, averageOutput);
+            var cali = new PlattCalibrator(-objective.Sigmoid);
+            return new CalibratedPredictor(pred, cali);
+        }
+
+        /// <summary>
+        /// Load an externally trained model from a string
+        /// </summary>
+        /// <param name="modelString">Externally trained model string</param>
+        public static IPredictorWithFeatureWeights<double> FromString(string modelString)
+        {
+            (var model, var args, var numFeatures) = Ensemble.GetModelFromString(modelString);
+
+            var averageOutput = (args.Learning.Boosting == BoostingType.RandomForest);
+            IPredictorWithFeatureWeights<double> managed = BinaryPredictor.CreateManagedPredictor(model, numFeatures, averageOutput, args.Objective);
+
+            return managed;
+        }
+        public static IPredictorWithFeatureWeights<double> FromFile(string fileName)
+        {
+            if (!System.IO.File.Exists(fileName))
+                throw new Exception($"File does not exist: {fileName}");
+            return FromString(System.IO.File.ReadAllText(fileName));
         }
 
         public void Save(BinaryWriter writer)
@@ -258,6 +326,20 @@ namespace LightGBMNet.Tree
 
         private RankingPredictor(BinaryReader reader, bool legacyVersion) : base(reader, legacyVersion)
         {
+        }
+
+        public static IPredictorWithFeatureWeights<double> FromString(string modelString)
+        {
+            (var model, var args, int numFeatures) = Ensemble.GetModelFromString(modelString);
+            var averageOutput = (args.Learning.Boosting == BoostingType.RandomForest);
+            var managed = new RankingPredictor(model, numFeatures, averageOutput);
+            return managed;
+        }
+        public static IPredictorWithFeatureWeights<double> FromFile(string fileName)
+        {
+            if (!System.IO.File.Exists(fileName))
+                throw new Exception($"File does not exist: {fileName}");
+            return FromString(System.IO.File.ReadAllText(fileName));
         }
 
         public void Save(BinaryWriter writer)

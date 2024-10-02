@@ -7,7 +7,7 @@ using System.Reflection;
 
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("LightGBMNet.Train.Test")]
 
-namespace LightGBMNet.Train
+namespace LightGBMNet.Tree
 {
     //public enum TaskType : int
     //{
@@ -16,6 +16,14 @@ namespace LightGBMNet.Train
     //    ConvertModel = 2,
     //    Refit = 3
     //}
+    public static class Check
+    {
+        public static void NonNull<T>(T x, string name) where T : class
+        {
+            if (x == null)
+                throw new ArgumentException(name);
+        }
+    }
 
     public enum ObjectiveType : int
     {

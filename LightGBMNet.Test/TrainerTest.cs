@@ -1021,6 +1021,23 @@ namespace LightGBMNet.Train.Test
         }
 
         [Fact]
+        public void LoadExternalModelsManagedOnly()
+        {
+            var path = Path.GetDirectoryName(this.GetType().Assembly.Location);
+            var binary = BinaryPredictor.FromFile(Path.Combine(path, "models", "binary_model.txt"));
+            Assert.Equal(28, binary.NumInputs);
+
+            var regression = RegressionPredictor.FromFile(Path.Combine(path, "models", "regression_model.txt"));
+            Assert.Equal(28, regression.NumInputs);
+
+            var ranking = RankingPredictor.FromFile(Path.Combine(path, "models", "ranking_model.txt"));
+            Assert.Equal(301, ranking.NumInputs);
+
+            var multiclass = OvaPredictor.FromFile(Path.Combine(path, "models", "multiclass_model.txt"));
+            Assert.Equal(28, multiclass.NumInputs);
+        }
+
+        [Fact]
         public void LoadExternalModels()
         {
             var path = Path.GetDirectoryName(this.GetType().Assembly.Location);

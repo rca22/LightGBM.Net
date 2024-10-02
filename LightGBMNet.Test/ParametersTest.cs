@@ -3,6 +3,7 @@ using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 using Xunit;
+using LightGBMNet.Tree;
 
 namespace LightGBMNet.Train.Test
 {

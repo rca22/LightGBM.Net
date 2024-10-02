@@ -32,6 +32,53 @@ namespace LightGBMNet.Tree
             Predictors = predictors;
         }
 
+        private static Ensemble GetBinaryEnsemble(Ensemble trainedEnsemble, int numClass, int classID)
+        {
+            //var numClass = Objective.NumClass;
+            Ensemble res = new Ensemble();
+            for (int i = classID; i < trainedEnsemble.NumTrees; i += numClass)
+            {
+                res.AddTree(trainedEnsemble.GetTreeAt(i));
+            }
+            return res;
+        }
+
+        private static BinaryPredictor CreateBinaryPredictor(Ensemble trainedEnsemble, int numClass, int featureCount, bool averageOutput, int classID)
+        {
+            return new BinaryPredictor(GetBinaryEnsemble(trainedEnsemble, numClass, classID), featureCount, averageOutput);
+        }
+
+        public static IPredictorWithFeatureWeights<double[]> CreateManagedPredictor(Ensemble trainedEnsemble, int featureCount, bool averageOutput, ObjectiveParameters objective)
+        {
+            var numClass = objective.NumClass;
+            if (trainedEnsemble.NumTrees % numClass != 0)
+                throw new Exception("Number of trees should be a multiple of number of classes.");
+
+            var isSoftMax = (objective.Objective == ObjectiveType.MultiClass);
+            IPredictorWithFeatureWeights<double>[] predictors = new IPredictorWithFeatureWeights<double>[numClass];
+            var cali = isSoftMax ? null : new PlattCalibrator(-objective.Sigmoid);
+            for (int i = 0; i < numClass; ++i)
+            {
+                var pred = CreateBinaryPredictor(trainedEnsemble, numClass, featureCount, averageOutput, i) as IPredictorWithFeatureWeights<double>;
+                predictors[i] = isSoftMax ? pred : new CalibratedPredictor(pred, cali);
+            }
+            return OvaPredictor.Create(isSoftMax, predictors);
+        }
+
+        public static IPredictorWithFeatureWeights<double[]> FromString(string modelString)
+        {
+            (var model, var args, int numFeatures) = Ensemble.GetModelFromString(modelString);
+            var averageOutput = (args.Learning.Boosting == BoostingType.RandomForest);
+            var managed = OvaPredictor.CreateManagedPredictor(model, numFeatures, averageOutput, args.Objective);
+            return managed;
+        }
+        public static IPredictorWithFeatureWeights<double[]> FromFile(string fileName)
+        {
+            if (!System.IO.File.Exists(fileName))
+                throw new Exception($"File does not exist: {fileName}");
+            return FromString(System.IO.File.ReadAllText(fileName));
+        }
+
         public int MaxNumTrees
         {
             get => Predictors.Select(x => x.MaxNumTrees).Max();

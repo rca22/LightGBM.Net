@@ -1,4 +1,5 @@
-﻿using System;
+﻿using LightGBMNet.Tree;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -33,7 +34,7 @@ namespace LightGBMNet.Train.Test
                 var pms = new Parameters() { Common = dataSet.CommonParameters, Dataset = dataSet.DatasetParameters };
                 using (var booster = new Booster(pms, dataSet))
                 {
-                    (var tree, var pmsout) = booster.GetModel();
+                    (var tree, var pmsout, var numFeatures) = Ensemble.GetModelFromString(booster.GetModelString());
                     if (pms != pmsout)
                     {
                         // if we use DefaultMetric, the returned parameter set will return the objective as the metric
