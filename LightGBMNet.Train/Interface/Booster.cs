@@ -445,7 +445,8 @@ namespace LightGBMNet.Train
             if (predictType == PredictType.LeafIndex)
                     throw new NotImplementedException("TODO: PredictType.LeafIndex");
 
-            long outLen = NumClasses; // TODO
+            int numRow = 1; // Only 1 mat
+            long outLen = CalcNumPredict(numRow, predictType, numIteration);
             double[] outResult = new double[outLen];
             fixed (double* ptr = outResult)
                 PInvokeException.Check(PInvoke.BoosterPredictForMat( Handle
