@@ -2,11 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
-using Xunit.Abstractions;
 using LightGBMNet.Tree;
-using System.Threading;
 using System.IO;
-using System.Diagnostics;
 
 namespace LightGBMNet.Train.Test
 {

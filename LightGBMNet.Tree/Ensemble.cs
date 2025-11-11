@@ -309,7 +309,7 @@ namespace LightGBMNet.Tree
                     // [objective: binary]
                     if (lines[i].StartsWith("["))
                     {
-                        var bits = lines[i].Split(new char[] { '[', ']', ' ', ':' }, StringSplitOptions.RemoveEmptyEntries);
+                        var bits = lines[i].Split(new char[] { '[', ']', ' ', ':', '\r'}, StringSplitOptions.RemoveEmptyEntries);
                         if (bits.Length == 2)   // ignores, e.g. [data: ]
                             prms.Add(bits[0], bits[1]);
                     }
