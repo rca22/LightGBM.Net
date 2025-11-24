@@ -363,7 +363,7 @@ namespace LightGBMNet.Train
             CApiDType dataType,
             int* nrow,
             int ncol,
-            int isRowMajor,
+            int* isRowMajor,
             [MarshalAs(UnmanagedType.LPStr)]string parameters,
             IntPtr reference,
             ref IntPtr ret);
@@ -373,7 +373,7 @@ namespace LightGBMNet.Train
             float** data,
             int* nRow,
             int nCol,
-            bool isRowMajor,
+            int* isRowMajor,
             string parameters,
             IntPtr reference,
             ref IntPtr ret)
@@ -384,7 +384,7 @@ namespace LightGBMNet.Train
                 CApiDType.Float32,
                 nRow,
                 nCol,
-                (isRowMajor ? 1 : 0),
+                isRowMajor,
                 parameters,
                 reference,
                 ref ret);
