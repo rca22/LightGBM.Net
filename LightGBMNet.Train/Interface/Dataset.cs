@@ -117,22 +117,25 @@ namespace LightGBMNet.Train
             {
                 float*[] dataPtrs = new float*[data.Length];
                 int[] nRows = new int[data.Length];
+                int[] isRowMajor = new int[data.Length];
                 for (int i = 0; i < data.Length; i++)
                 {
                     var hdl = GCHandle.Alloc(data[i], GCHandleType.Pinned);
                     gcHandles.Add(hdl);
                     dataPtrs[i] = (float*)hdl.AddrOfPinnedObject().ToPointer();
                     nRows[i] = 1;
-                };
+                    isRowMajor[i] = 1;
+                }
                 fixed (float** dataPtr = dataPtrs)
                 fixed (int* nRowsPtr = nRows)
+                fixed (int* isRowMajorPtr = isRowMajor)
                 {
                     PInvokeException.Check(PInvoke.DatasetCreateFromMats(
                         data.Length,
                         dataPtr,
                         nRowsPtr,
                         numCol,
-                        /*isRowMajor*/true,
+                        isRowMajorPtr,
                         pmString,
                         reference?._handle ?? IntPtr.Zero,
                         ref _handle
