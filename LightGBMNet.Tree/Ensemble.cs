@@ -133,7 +133,7 @@ namespace LightGBMNet.Tree
         private static double[] Str2DoubleArray(string str, char[] delimiters)
         {
             return str.Split(delimiters, StringSplitOptions.RemoveEmptyEntries)
-                      .Select(s => double.TryParse(s.Replace("inf", "∞"), out double rslt) ? rslt :
+                      .Select(s => double.TryParse(s.Replace("inf", "Infinity"), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double rslt) ? rslt :
                                     (s.Contains("nan") ? double.NaN : throw new Exception($"Cannot parse as double: {s}")))
                       .ToArray();
         }
