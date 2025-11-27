@@ -14,6 +14,9 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="LightGBMNet.Train.Test" />
+  </ItemGroup>
+  <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="" />
   </ItemGroup>
 </Project>
