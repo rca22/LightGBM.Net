@@ -8,7 +8,6 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Diagnostics;
-using System.ComponentModel;
 
 namespace LightGBMNet.Tree
 {
@@ -134,7 +133,7 @@ namespace LightGBMNet.Tree
         private static double[] Str2DoubleArray(string str, char[] delimiters)
         {
             return str.Split(delimiters, StringSplitOptions.RemoveEmptyEntries)
-                      .Select(s => double.TryParse(s.Replace("inf", "∞"), out double rslt) ? rslt :
+                      .Select(s => double.TryParse(s.Replace("inf", "Infinity"), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double rslt) ? rslt :
                                     (s.Contains("nan") ? double.NaN : throw new Exception($"Cannot parse as double: {s}")))
                       .ToArray();
         }
@@ -202,6 +201,7 @@ namespace LightGBMNet.Tree
         public static (Ensemble, Parameters, int) GetModelFromString(string modelString)
         {
             Ensemble res = new Ensemble();
+            // Note that this doesn't allow for files being checked out in Windows with autocrlf
             string[] lines = modelString.Split('\n');
             var prms = new Dictionary<string, string>();
             var delimiters = new char[] { ' ' };
@@ -309,7 +309,7 @@ namespace LightGBMNet.Tree
                     // [objective: binary]
                     if (lines[i].StartsWith("["))
                     {
-                        var bits = lines[i].Split(new char[] { '[', ']', ' ', ':' }, StringSplitOptions.RemoveEmptyEntries);
+                        var bits = lines[i].Split(new char[] { '[', ']', ' ', ':'}, StringSplitOptions.RemoveEmptyEntries);
                         if (bits.Length == 2)   // ignores, e.g. [data: ]
                             prms.Add(bits[0], bits[1]);
                     }

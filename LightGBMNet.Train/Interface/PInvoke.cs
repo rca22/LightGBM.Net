@@ -73,7 +73,7 @@ namespace LightGBMNet.Train
         //    }
         //}
 
-        private const string DllName = @"x64\lib_lightgbm";
+        private const string DllName = @"lib_lightgbm";
 
         // The functions below are presented for simplicity in the order in which they appear in the file
         // https://github.com/Microsoft/LightGBM/blob/master/include/LightGBM/c_api.h
@@ -417,7 +417,7 @@ namespace LightGBMNet.Train
         [DllImport(DllName, EntryPoint = "LGBM_DatasetSetFeatureNames", CallingConvention = CallingConvention.StdCall)]
         public static extern int DatasetSetFeatureNames(
             IntPtr handle,
-            IntPtr[] featureNames, 
+            IntPtr[] featureNames,
             int numFeatureNames);
 
         /// <summary>

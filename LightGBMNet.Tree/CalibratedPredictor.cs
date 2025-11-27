@@ -7,10 +7,10 @@ using System.IO;
 using System.Collections.Generic;
 
 namespace LightGBMNet.Tree
-{       
+{
     public interface ICalibrator
     {
-        /// <summary> Given a classifier output, produce the transformed output</summary>		
+        /// <summary> Given a classifier output, produce the transformed output</summary>
         double Transform(double output);
     }
 
@@ -83,7 +83,7 @@ namespace LightGBMNet.Tree
         }
 
     }
-    
+
     public sealed class ExponentialCalibrator : ICalibrator
     {
         private ExponentialCalibrator()
@@ -102,7 +102,7 @@ namespace LightGBMNet.Tree
             return Math.Exp(output);
         }
     }
-       
+
     public sealed class SqrtCalibrator : ICalibrator
     {
         private SqrtCalibrator()

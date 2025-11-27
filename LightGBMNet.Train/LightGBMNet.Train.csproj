@@ -1,25 +1,23 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
     <Platforms>x64</Platforms>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId>LightGBMNet.Train</PackageId>
     <Authors>rca22, mjmckp</Authors>
-    <Company />
+    <Company>rca22, mjmckp</Company>
     <Product>LightGBMNet.Train</Product>
     <Description>.NET wrapper for LightGBM training (includes native dlls compiled for CPU training only)</Description>
     <PackageProjectUrl></PackageProjectUrl>
     <RepositoryUrl>https://github.com/rca22/LightGBM.Net</RepositoryUrl>
     <PackageTags>LightGBM</PackageTags>
-    <Version>1.0.23</Version>
+    <Version>1.0.24</Version>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <DebugType>full</DebugType>
-    <DebugSymbols>true</DebugSymbols>
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
 
@@ -32,28 +30,37 @@
   <ItemGroup>
     <ProjectReference Include="..\LightGBMNet.Tree\LightGBMNet.Tree.csproj" />
   </ItemGroup>
-
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
   <ItemGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <None Include="..\native\Release\lib_lightgbm.dll" LinkBase="x64" Pack="true" PackagePath="build\x64">
+    <None Include="..\native\Release\lib_lightgbm.dll" Pack="true" PackagePath="runtimes\win-x64\native">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="..\native\Release\lightgbm.exe" LinkBase="x64" Pack="true" PackagePath="build\x64">
+    <None Include="..\native\Release\lightgbm.exe" Pack="true" PackagePath="runtimes\win-x64\native">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\native\Release\lib_lightgbm.so" Pack="true" PackagePath="runtimes\linux-x64\native">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\native\Release\lightgbm.exe" Pack="true" PackagePath="runtimes\linux-x64\native">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <None Include="..\native\Debug\lib_lightgbm.dll" LinkBase="x64" Pack="true" PackagePath="build\x64">
+    <None Include="..\native\Debug\lib_lightgbm.dll" Pack="true" PackagePath="runtimes\win-x64\native">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="..\native\Debug\lightgbm.exe" LinkBase="x64" Pack="true" PackagePath="build\x64">
+    <None Include="..\native\Debug\lightgbm.exe" Pack="true" PackagePath="runtimes\win-x64\native">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <!-- just use the release version for Linux -->
+    <None Include="..\native\Release\lib_lightgbm.so" Pack="true" PackagePath="runtimes\linux-x64\native">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\native\Debug\lightgbm.exe" Pack="true" PackagePath="runtimes\linux-x64\native">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-  
-  <ItemGroup>
-    <None Include="LightGBMNet.Train.targets" Pack="true" PackagePath="build">
-    </None>
-  </ItemGroup>
-  
 </Project>
