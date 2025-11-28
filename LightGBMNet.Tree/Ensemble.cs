@@ -341,6 +341,9 @@ namespace LightGBMNet.Tree
             // irrelevant parameter for managed trees which always use NaN for missing value
             prms.Remove("zero_as_missing");
             prms.Remove("saved_feature_importance_type");
+            prms.Remove("data");
+            prms.Remove("valid");
+            prms.Remove("label_column");
             if (prms.Count > 0)
             {
                 Console.WriteLine($"WARNING: Unknown new parameters {String.Join(",", prms.Keys)}");

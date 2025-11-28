@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
-using System.Text;
 using System.Reflection;
+using System.Text;
+using System.Text.RegularExpressions;
+using static LightGBMNet.Tree.RegressionTree;
 
 namespace LightGBMNet.Tree
 {
@@ -1149,6 +1152,68 @@ namespace LightGBMNet.Tree
         public DataSampleStrategyType DataSampleStrategy { get; set; } = DataSampleStrategyType.Bagging;
 
         /// <summary>
+        /// Whether to do bagging sample by query
+        /// </summary>
+        public bool BaggingByQuery { get; set; } = false;
+
+        /// <summary>
+        /// Whether to use gradient quantization when training
+        /// * Enabling this will discretize (quantize) the gradients and hessians into bins of num_grad_quant_bins
+        /// * With quantized training, most arithmetics in the training process will be integer operations
+        /// * Gradient quantization can accelerate training, with little accuracy drop in most cases
+        /// * Note: works only with cpu and cuda device type
+        /// </summary>
+        public bool UseQuantizedGrad { get; set; } = false;
+
+        private double _earlyStoppingMinDelta = 0.0;
+        /// <summary>
+        /// When early stopping is used (i.e. early_stopping_round > 0), require the early stopping metric to improve by at least this delta to be considered an improvement.
+        /// </summary>
+        public double EarlyStoppingMinDelta
+        {
+            get { return _earlyStoppingMinDelta; }
+            set
+            {
+                if (value < 0.0)
+                    throw new ArgumentOutOfRangeException("EarlyStoppingMinDelta");
+                _earlyStoppingMinDelta = value;
+            }
+        }
+
+        /// <summary>
+        /// Number of bins to quantization gradients and hessians
+        /// With more bins, the quantized training will be closer to full precision training
+        /// Used only if use_quantized_grad=true
+        /// Note: works only with cpu and cuda device type
+        /// </summary>
+        private int _numGradQuantBins = 4;
+        public int NumGradQuantBins
+        {
+            get { return _numGradQuantBins; }
+            set
+            {
+                if (value < 0)
+                    throw new ArgumentOutOfRangeException("NumGradQuantBins");
+                _numGradQuantBins = value;
+            }
+        }
+
+        /// <summary>
+        /// Whether to renew the leaf values with original gradients when quantized training
+        /// Renewing is very helpful for good quantized training accuracy for ranking objectives
+        /// Used only if use_quantized_grad=true
+        /// Note: works only with cpu and cuda device type
+        /// </summary>
+        public bool QuantTrainRenewLeaf { get; set; } = false;
+
+        /// <summary>
+        /// Whether to use stochastic rounding in gradient quantization
+        /// Used only if use_quantized_grad=true
+        /// Note: works only with cpu and cuda device type
+        /// </summary>
+        public bool StochasticRounding { get; set; } = true;
+
+        /// <summary>
         /// Number of boosting iterations
         /// Note: internally, LightGBM constructs num_class * num_iterations trees for multi-class classification problems
         /// </summary>
@@ -1907,8 +1972,14 @@ namespace LightGBMNet.Tree
         /// For example, the gain of label 2 is 3 in case of default label gains.
         /// Default = 0,1,3,7,15,31,63,...,2^30-1
         /// </summary>
-        public double[] LabelGain { get; set; } = _defLabelGain;
-
+        public double[] LabelGain
+        {
+            get { return _labelGain; }
+            set
+            {
+                _labelGain = value;
+            }
+        }
 
         /// Parameters describing the metric <see cref="https://github.com/Microsoft/LightGBM/blob/master/docs/Parameters.rst#metric-parameters"/>
 
@@ -1980,6 +2051,23 @@ namespace LightGBMNet.Tree
         /// Set this to false to enforce the original lambdarank algorithm.
         /// </summary>
         public bool LambdarankNorm { get; set; } = true;
+        
+        private double _lambdarankPositionBiasRegularization = 0.0;
+        /// <summary>
+        /// Larger values reduce the inferred position bias factors
+        /// Used only in lambdarank application when positional information is provided and position bias is modeled
+        /// </summary>
+        public double LambdarankPositionBiasRegularization
+        {
+            get { return _lambdarankPositionBiasRegularization; }
+            set
+            {
+                if (value < 0.0)
+                    throw new ArgumentOutOfRangeException("LambdarankPositionBiasRegularization");
+                _lambdarankPositionBiasRegularization = value;
+            }
+        }
+
 
         private int _multi_error_top_k = 1;
         /// <summary>
@@ -2003,25 +2091,49 @@ namespace LightGBMNet.Tree
         // CLI only
         // public bool IsProvideTrainingMetric { get; set; } = false;
 
-        private static readonly int[] _defEvalAt = new int[] { 1, 2, 3, 4, 5 };
         /// <summary>
         /// NDCG and MAP evaluation positions.
         /// Used only with ndcg and map metrics.
         /// </summary>
-        public int[] EvalAt { get; set; } = _defEvalAt;
+        public int[] EvalAt
+        {
+            get { return _evalAt; }
+            set
+            {
+                _evalAt = value;
+            }
+        }
+
+        /// <summary>
+        /// NDCG and MAP evaluation positions.
+        /// Used only with ndcg and map metrics.
+        /// </summary>
+        public double[] AucMuWeights
+        {
+            get { return _aucMuWeights; }
+            set
+            {
+                _aucMuWeights = value;
+            }
+        }
 
         #endregion
 
-        private static readonly double[] _defLabelGain;
-        static ObjectiveParameters()
-        {
-            _defLabelGain = new double[31];
-            for (int i = 0; i < 31; ++i)
-                _defLabelGain[i] = (1L << i) - 1L;
-        }
+        private double[] _labelGain;
+        private int[] _evalAt;
+        private double[] _aucMuWeights;
 
         public ObjectiveParameters() : base()
         {
+            _labelGain = new double[31];
+            for (int i = 0; i < 31; ++i)
+                _labelGain[i] = (1L << i) - 1L;
+
+            _evalAt = new int[6];
+            for (int i = 0; i < _evalAt.Length; i++)
+                _evalAt[i] = i;
+
+            _aucMuWeights = new double[] {};
         }
 
         public ObjectiveParameters(Dictionary<string, string> data)
