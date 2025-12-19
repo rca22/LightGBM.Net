@@ -8,7 +8,7 @@
     <Description>Pure .NET implementation of LightGBM trees</Description>
     <RepositoryUrl>https://github.com/rca22/LightGBM.Net</RepositoryUrl>
     <PackageTags>LightGBM</PackageTags>
-    <Version>1.0.24</Version>
+    <Version>1.0.25</Version>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <PackageReadmeFile>README.md</PackageReadmeFile>
