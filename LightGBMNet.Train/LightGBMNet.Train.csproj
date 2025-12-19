@@ -13,7 +13,7 @@
     <PackageProjectUrl></PackageProjectUrl>
     <RepositoryUrl>https://github.com/rca22/LightGBM.Net</RepositoryUrl>
     <PackageTags>LightGBM</PackageTags>
-    <Version>1.0.24</Version>
+    <Version>1.0.25</Version>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
@@ -43,9 +43,6 @@
     <None Include="..\native\Release\lib_lightgbm.so" Pack="true" PackagePath="runtimes\linux-x64\native">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="..\native\Release\lightgbm.exe" Pack="true" PackagePath="runtimes\linux-x64\native">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -57,9 +54,6 @@
     </None>
     <!-- just use the release version for Linux -->
     <None Include="..\native\Release\lib_lightgbm.so" Pack="true" PackagePath="runtimes\linux-x64\native">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="..\native\Debug\lightgbm.exe" Pack="true" PackagePath="runtimes\linux-x64\native">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
